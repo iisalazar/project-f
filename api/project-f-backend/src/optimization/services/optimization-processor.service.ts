@@ -100,6 +100,7 @@ export class OptimizationProcessorService {
       start: driver.startLocation,
       end: driver.endLocation,
       time_window: driver.availabilityWindow ?? [28800, 61200],
+      max_tasks: driver.maxTasks ?? 4,
     }));
 
     const jobs = payload.stops.map((stop: any) => ({

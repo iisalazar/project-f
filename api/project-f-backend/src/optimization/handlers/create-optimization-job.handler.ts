@@ -63,6 +63,7 @@ export class CreateOptimizationJobHandler implements ICommandHandler<CreateOptim
       drivers: drivers.map((driver) => ({
         ...driver,
         availabilityWindow: driver.availabilityWindow ?? DEFAULT_WINDOW,
+        maxTasks: driver.maxTasks ?? 4,
         serviceSeconds: undefined,
       })),
       stops: stops.map((stop) => ({

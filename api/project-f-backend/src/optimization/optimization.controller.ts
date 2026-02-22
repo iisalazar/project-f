@@ -29,6 +29,7 @@ export class OptimizationController {
               startLocation: { type: 'array', items: { type: 'number' }, example: [121.0437, 14.676] },
               endLocation: { type: 'array', items: { type: 'number' }, example: [121.0437, 14.676] },
               availabilityWindow: { type: 'array', items: { type: 'number' }, example: [28800, 61200] },
+              maxTasks: { type: 'number', example: 4 },
             },
             required: ['id', 'name', 'startLocation', 'endLocation'],
           },

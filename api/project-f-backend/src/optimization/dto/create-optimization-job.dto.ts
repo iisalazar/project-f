@@ -4,6 +4,7 @@ export interface OptimizationDriverDto {
   startLocation: [number, number];
   endLocation: [number, number];
   availabilityWindow?: [number, number];
+  maxTasks?: number;
 }
 
 export interface OptimizationStopDto {
