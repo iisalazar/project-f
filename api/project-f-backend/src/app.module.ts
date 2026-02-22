@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrototypeModule } from './prototype/prototype.module';
+import { OptimizationModule } from './optimization/optimization.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { PrototypeModule } from './prototype/prototype.module';
     }),
     PrismaModule,
     AuthModule,
+    OptimizationModule,
     PrototypeModule,
   ],
   controllers: [AppController],

@@ -1,0 +1,4 @@
+name: project-f-infra
+runtime: nodejs
+description: Localstack infrastructure (SQS) for Project F
+main: index.ts

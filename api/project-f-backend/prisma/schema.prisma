@@ -19,6 +19,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   sessionTokens UserSessionToken[]
+  optimizationJobs OptimizationJob[]
 }
 
 model OtpVerification {
@@ -44,4 +45,38 @@ model UserSessionToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+model OptimizationJob {
+  id            String   @id @default(uuid()) @db.Uuid
+  ownerUserId   String   @db.Uuid
+  version       String
+  status        String
+  data          Json
+  dataVersion   String
+  result        Json?
+  resultVersion String?
+  errorMessage  String?
+  lastErrorAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  owner User @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  logs  OptimizationJobLog[]
+
+  @@index([ownerUserId, status])
+  @@index([createdAt])
+}
+
+model OptimizationJobLog {
+  id                 String   @id @default(uuid()) @db.Uuid
+  optimizationJobId  String   @db.Uuid
+  type               String
+  message            String
+  data               Json?
+  createdAt          DateTime @default(now())
+
+  job OptimizationJob @relation(fields: [optimizationJobId], references: [id], onDelete: Cascade)
+
+  @@index([optimizationJobId])
 }

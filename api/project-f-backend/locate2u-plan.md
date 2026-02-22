@@ -3,7 +3,7 @@
 This plan is split by verticals/features and ordered by dependency.
 
 ## 1) Core Data Platform (Foundation)
-- Entities: `Organization`, `User`, `Driver`, `Vehicle`, `Stop/Job`, `RoutePlan`, `RouteStop`, `Dispatch`, `ExecutionEvent`, `Pod`.
+- Entities: `Organization`, `User`, `Driver`, `Vehicle`, `Depot/Warehouse`, `Stop/Job`, `Trip` (daily driver run), `TripStop`, `RoutePlan`, `RouteStop`, `Dispatch`, `ExecutionEvent`, `Pod`.
 - Relationships and ownership rules (multi-tenant).
 - Status enums (job lifecycle, driver state, route status).
 - Audit/logging for critical updates (assignments, status changes).
@@ -17,6 +17,12 @@ This plan is split by verticals/features and ordered by dependency.
   - `POST /plan/optimize` returns route plan + ordered stops.
 - Persist plan result:
   - RoutePlan + RouteStop order + geometry + ETAs.
+- Trip planning:
+  - Build daily `Trip` per driver from depot start + assigned stops.
+  - Persist ordered `TripStop` (driver’s “today” itinerary).
+- Incremental replan:
+  - When a stop is assigned mid-day, re-optimize only that driver’s active trip.
+  - Use current GPS position as virtual start, and keep completed stops fixed.
 - Manual sequencing:
   - API to reorder stops and recompute ETA/geometry via OSRM.
 - Constraints/heuristics:
@@ -27,6 +33,8 @@ This plan is split by verticals/features and ordered by dependency.
 - Assign driver/vehicle to route or stops.
 - Dispatch actions:
   - `POST /dispatch/route`, `POST /dispatch/stop`.
+- Dispatch triggers:
+  - Assigning a stop to a driver triggers a trip replan + ETA recalculation.
 - Driver workflow state machine:
   - `idle → enroute → arrived → completed → failed`.
 - Assignment rules:
@@ -35,7 +43,7 @@ This plan is split by verticals/features and ordered by dependency.
 
 ## 4) Execution & Driver App Vertical (Execute)
 - Driver itinerary endpoints:
-  - `GET /driver/route/today`, `GET /driver/stops`.
+  - `GET /driver/trip/today`, `GET /driver/stops`.
 - Status updates:
   - `POST /driver/stops/:id/status`.
 - POD capture:
@@ -51,6 +59,7 @@ This plan is split by verticals/features and ordered by dependency.
   - `GET /tracking/route/:id` for dispatch UI.
 - ETA recompute:
   - OSRM route update with live driver position.
+  - Per-driver trip ETA recalculation when stops change or GPS updates.
 - Public tracking links:
   - tokenized URL per stop.
 - Rationale: customer experience + ops visibility.
