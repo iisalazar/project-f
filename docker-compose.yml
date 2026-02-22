@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=projectf
+      - POSTGRES_USER=projectf
+      - POSTGRES_PASSWORD=projectf
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data/osrm:/data
+    command: >
+      osrm-routed --algorithm mld /data/map.osrm
+
+  vroom:
+    image: ghcr.io/vroom-project/vroom-docker:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - VROOM_ROUTER=osrm
+    volumes:
+      - ./config/vroom/config.yml:/conf/config.yml:ro
+    depends_on:
+      - osrm
+
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs
+      - DEFAULT_REGION=ap-southeast-1
+      - EDGE_PORT=4566
+    volumes:
+      - ./data/localstack:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  pgdata:
