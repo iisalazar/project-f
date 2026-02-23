@@ -1,5 +1,5 @@
 export interface OptimizationDriverDto {
-  id: string;
+  id: number;
   name: string;
   startLocation: [number, number];
   endLocation: [number, number];
@@ -8,7 +8,7 @@ export interface OptimizationDriverDto {
 }
 
 export interface OptimizationStopDto {
-  id: string;
+  id: number;
   location: [number, number];
   serviceSeconds?: number;
 }
