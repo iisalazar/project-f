@@ -34,7 +34,7 @@ export class CreateOptimizationJobHandler implements ICommandHandler<CreateOptim
       throw new BadRequestException('stops must be a non-empty array');
     }
 
-    const driverIds = new Set<string>();
+    const driverIds = new Set<number>();
     for (const driver of drivers) {
       if (!driver?.id || !driver?.name) {
         throw new BadRequestException('driver.id and driver.name are required');
@@ -47,7 +47,7 @@ export class CreateOptimizationJobHandler implements ICommandHandler<CreateOptim
       this.assertLocation(driver.endLocation, 'driver.endLocation');
     }
 
-    const stopIds = new Set<string>();
+    const stopIds = new Set<number>();
     for (const stop of stops) {
       if (!stop?.id) {
         throw new BadRequestException('stop.id is required');

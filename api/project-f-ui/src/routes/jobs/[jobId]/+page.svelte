@@ -7,6 +7,7 @@
   import { goto } from '$app/navigation';
   import polyline from '@mapbox/polyline';
   import mapboxgl from 'mapbox-gl';
+  import OptimizationInputBuilder from '$lib/components/OptimizationInputBuilder.svelte';
 
   let job: OptimizationJobDetail | null = null;
   let error = '';
@@ -18,8 +19,14 @@
   let markers: mapboxgl.Marker[] = [];
   let mapInitialized = false;
   let drivers: any[] = [];
+  let requestView: 'json' | 'table' = 'json';
+  let dataRoot: Record<string, unknown> = {};
+  let jsonText = '';
+  let jsonError = '';
 
   const jobId = get(page).params.jobId as string;
+
+  $: drivers = (dataRoot as any)?.drivers ?? [];
 
   async function loadJob() {
     error = '';
@@ -27,7 +34,8 @@
     try {
       await apiFetch('/auth/me');
       job = await apiFetch(`/optimization/jobs/${jobId}`);
-      drivers = (job.data as any)?.drivers ?? [];
+      dataRoot = ((job.data as any) ?? {}) as Record<string, unknown>;
+      jsonText = JSON.stringify(dataRoot, null, 2);
       status = '';
     } catch (err) {
       const apiError = err as Error & { status?: number };
@@ -156,13 +164,6 @@
   }
 </script>
 
-<svelte:head>
-  <link
-    href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css"
-    rel="stylesheet"
-  />
-</svelte:head>
-
 <div class="card">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
     <div>
@@ -203,10 +204,13 @@
       <p style="margin-top:16px;color:var(--danger);">{job.errorMessage}</p>
     {/if}
 
-    <div style="margin-top:24px;">
-      <label>Request Data</label>
-      <div class="code">{JSON.stringify(job.data, null, 2)}</div>
-    </div>
+    <OptimizationInputBuilder
+      bind:value={dataRoot}
+      bind:view={requestView}
+      bind:jsonText={jsonText}
+      bind:jsonError={jsonError}
+      label="Request Data"
+    />
 
     <div style="margin-top:24px;">
       <label>Result</label>

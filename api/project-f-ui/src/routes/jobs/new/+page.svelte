@@ -2,6 +2,7 @@
   import { apiFetch } from '$lib/api';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import OptimizationInputBuilder from '$lib/components/OptimizationInputBuilder.svelte';
 
   let error = '';
   let status = '';
@@ -9,7 +10,7 @@
   const sample = {
     drivers: [
       {
-        id: 'driver-1',
+        id: 1,
         name: 'Juan Dela Cruz',
         startLocation: [121.0437, 14.676],
         endLocation: [121.0437, 14.676],
@@ -17,12 +18,15 @@
       },
     ],
     stops: [
-      { id: 'stop-1', location: [121.0509, 14.5547], serviceSeconds: 300 },
-      { id: 'stop-2', location: [121.0600, 14.5600], serviceSeconds: 180 },
+      { id: 1, location: [121.0509, 14.5547], serviceSeconds: 300 },
+      { id: 2, location: [121.0600, 14.5600], serviceSeconds: 180 },
     ],
   };
 
+  let requestView: 'json' | 'table' = 'json';
+  let dataRoot: Record<string, unknown> = { ...sample };
   let payload = JSON.stringify(sample, null, 2);
+  let jsonError = '';
 
   onMount(async () => {
     try {
@@ -36,7 +40,7 @@
     error = '';
     status = 'Submitting job…';
     try {
-      const parsed = JSON.parse(payload);
+      const parsed = requestView === 'json' ? JSON.parse(payload) : dataRoot;
       const response = await apiFetch<{ jobId: string }>('/optimization/jobs', {
         method: 'POST',
         body: JSON.stringify(parsed),
@@ -48,20 +52,31 @@
       status = '';
     }
   }
+
+  function resetSample() {
+    dataRoot = { ...sample };
+    requestView = 'json';
+    payload = JSON.stringify(sample, null, 2);
+    jsonError = '';
+  }
 </script>
 
 <div class="card">
   <h2 style="margin:0 0 8px;">Create Optimization Job</h2>
-  <p class="muted" style="margin-top:0;">Paste your JSON payload below.</p>
+  <p class="muted" style="margin-top:0;">
+    Provide the request payload as JSON or use the table builder.
+  </p>
 
-  <label>Request Payload</label>
-  <textarea rows="18" bind:value={payload}></textarea>
+  <OptimizationInputBuilder
+    bind:value={dataRoot}
+    bind:view={requestView}
+    bind:jsonText={payload}
+    bind:jsonError={jsonError}
+  />
 
   <div style="display:flex;gap:12px;margin-top:16px;">
     <button class="button" on:click={submit}>Submit Job</button>
-    <button class="button secondary" on:click={() => (payload = JSON.stringify(sample, null, 2))}>
-      Reset Sample
-    </button>
+    <button class="button secondary" on:click={resetSample}>Reset Sample</button>
   </div>
 
   {#if status}

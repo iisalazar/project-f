@@ -22,7 +22,7 @@ services:
   vroom:
     image: ghcr.io/vroom-project/vroom-docker:latest
     ports:
-      - "3000:3000"
+      - "3005:3000"
     environment:
       - VROOM_ROUTER=osrm
     volumes:
