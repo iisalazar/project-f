@@ -8,11 +8,17 @@ import type { SendOtpRequestDto } from './dto/send-otp.dto';
 import type { VerifyOtpRequestDto } from './dto/verify-otp.dto';
 import { AuthGuard } from './guards/auth.guard';
 import { SESSION_COOKIE_NAME, SESSION_TTL_DAYS } from './auth.constants';
+import type { CreateOrganizationRequestDto } from './dto/create-organization.dto';
+import type { SetActiveOrganizationRequestDto } from './dto/set-active-organization.dto';
+import { OrganizationMembershipService } from './services/organization-membership.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly organizationMembershipService: OrganizationMembershipService,
+  ) {}
 
   @ApiOperation({ summary: 'Send OTP to email' })
   @ApiBody({
@@ -91,6 +97,40 @@ export class AuthController {
   @Get('me')
   async me(@Req() request: Request) {
     // @ts-ignore
-    return request?.user as any;
+    const user = request?.user as any;
+    // @ts-ignore
+    const authContext = request?.authContext as any;
+    return {
+      ...user,
+      auth: authContext ?? null,
+    };
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('memberships')
+  async memberships(@Req() request: Request) {
+    // @ts-ignore
+    const userId = request.user?.id as string;
+    return this.organizationMembershipService.listMemberships(userId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('onboarding/create-organization')
+  async createOrganization(@Req() request: Request, @Body() body: CreateOrganizationRequestDto) {
+    // @ts-ignore
+    const userId = request.user?.id as string;
+    // @ts-ignore
+    const sessionToken = request.sessionToken as string;
+    return this.organizationMembershipService.createOrganizationOnboarding(userId, sessionToken, body);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('active-organization')
+  async setActiveOrganization(@Req() request: Request, @Body() body: SetActiveOrganizationRequestDto) {
+    // @ts-ignore
+    const userId = request.user?.id as string;
+    // @ts-ignore
+    const sessionToken = request.sessionToken as string;
+    return this.organizationMembershipService.setActiveOrganization(userId, sessionToken, body.organizationId);
   }
 }
