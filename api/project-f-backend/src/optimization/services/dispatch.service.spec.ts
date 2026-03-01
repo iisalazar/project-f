@@ -6,7 +6,24 @@ describe('DispatchService', () => {
       $executeRaw: jest.fn().mockResolvedValue(1),
       $queryRaw: jest
         .fn()
-        .mockResolvedValue([{ id: '33333333-3333-3333-3333-333333333333' }]),
+        .mockResolvedValueOnce([{ id: 'route-1' }])
+        .mockResolvedValueOnce([
+          {
+            id: '33333333-3333-3333-3333-333333333333',
+            state: 'idle',
+            shiftStartSeconds: null,
+            shiftEndSeconds: null,
+            startLocation: [121, 14],
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: '44444444-4444-4444-4444-444444444444',
+            capacity: null,
+            skills: null,
+          },
+        ])
+        .mockResolvedValueOnce([{ stopCount: 0n, requiredSkills: [] }]),
     } as any;
 
     const service = new DispatchService(prisma);
@@ -22,7 +39,7 @@ describe('DispatchService', () => {
 
     expect(result.status).toBe('assigned');
     expect(result.dispatchId).toBeDefined();
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(4);
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
   });
 
@@ -31,7 +48,22 @@ describe('DispatchService', () => {
       $executeRaw: jest.fn().mockResolvedValue(1),
       $queryRaw: jest
         .fn()
-        .mockResolvedValue([{ id: '33333333-3333-3333-3333-333333333333' }]),
+        .mockResolvedValueOnce([
+          {
+            id: '22222222-2222-2222-2222-222222222222',
+            location: [121.1, 14.1],
+            timeWindow: null,
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: '33333333-3333-3333-3333-333333333333',
+            state: 'idle',
+            shiftStartSeconds: null,
+            shiftEndSeconds: null,
+            startLocation: [121, 14],
+          },
+        ]),
     } as any;
 
     const service = new DispatchService(prisma);
@@ -45,7 +77,7 @@ describe('DispatchService', () => {
     );
 
     expect(result.status).toBe('assigned');
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
   });
 });

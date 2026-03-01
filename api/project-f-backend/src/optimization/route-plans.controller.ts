@@ -14,7 +14,10 @@ import { OrganizationAccessGuard } from '../auth/guards/organization-access.guar
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoutePlansService } from './services/route-plans.service';
-import type { AssignRoutePlanDriverDto } from './dto/route-plans.dto';
+import type {
+  AssignRoutePlanDriverDto,
+  ReorderRouteStopsDto,
+} from './dto/route-plans.dto';
 
 @Controller('route-plans')
 @UseGuards(AuthGuard, OrganizationAccessGuard, RolesGuard)
@@ -90,6 +93,25 @@ export class RoutePlansController {
     // @ts-ignore
     const organizationId = request.authContext.activeOrganizationId as string;
     return this.routePlansService.assignDriver(
+      ownerUserId,
+      organizationId,
+      id,
+      body,
+    );
+  }
+
+  @Post(':id/reorder-stops')
+  @Roles('org_admin', 'dispatcher')
+  async reorderStops(
+    @Req() request: Request,
+    @Param('id') id: string,
+    @Body() body: ReorderRouteStopsDto,
+  ) {
+    // @ts-ignore
+    const ownerUserId = request.user?.id as string;
+    // @ts-ignore
+    const organizationId = request.authContext.activeOrganizationId as string;
+    return this.routePlansService.reorderStops(
       ownerUserId,
       organizationId,
       id,
