@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { apiFetch } from '$lib/api';
   import { dispatchRoute, dispatchStop } from '$lib/services/operations-api';
+  import { listDrivers, type DriverRecord } from '$lib/services/drivers-api';
+  import { getMe } from '$lib/services/auth-api';
 
   let routePlanId = '';
   let routeDriverId = '';
@@ -10,13 +11,24 @@
 
   let stopId = '';
   let stopDriverId = '';
+  let drivers: DriverRecord[] = [];
 
   let status = '';
   let error = '';
 
   onMount(async () => {
     try {
-      await apiFetch('/auth/me');
+      const me = await getMe();
+      if (me.auth?.needsOnboarding) {
+        goto('/onboarding/organization');
+        return;
+      }
+      const response = await listDrivers({ pageSize: 200 });
+      drivers = response.items;
+      if (drivers[0]) {
+        routeDriverId = drivers[0].id;
+        stopDriverId = drivers[0].id;
+      }
     } catch {
       goto('/login');
     }
@@ -55,7 +67,11 @@
       </div>
       <div>
         <label>Driver ID</label>
-        <input class="input" bind:value={routeDriverId} placeholder="UUID" />
+        <select bind:value={routeDriverId}>
+          {#each drivers as driver}
+            <option value={driver.id}>{driver.name} ({driver.state})</option>
+          {/each}
+        </select>
       </div>
       <div>
         <label>Vehicle ID (optional)</label>
@@ -74,7 +90,11 @@
       </div>
       <div>
         <label>Driver ID</label>
-        <input class="input" bind:value={stopDriverId} placeholder="UUID" />
+        <select bind:value={stopDriverId}>
+          {#each drivers as driver}
+            <option value={driver.id}>{driver.name} ({driver.state})</option>
+          {/each}
+        </select>
       </div>
     </div>
     <button class="button" style="margin-top:16px;" on:click={submitStopDispatch}>Dispatch Stop</button>
