@@ -247,17 +247,45 @@ export class OptimizationProcessorService {
       end: driver.endLocation,
       time_window: driver.availabilityWindow ?? [28800, 61200],
       max_tasks: driver.maxTasks ?? 4,
+      breaks: Array.isArray(driver.breaks)
+        ? driver.breaks.map((item: any) => ({
+            id: item.id,
+            service: item.serviceSeconds,
+            time_windows: item.timeWindows,
+          }))
+        : undefined,
     }));
 
     const jobs = payload.stops.map((stop: any) => ({
       id: stop.id,
       location: stop.location,
       service: stop.serviceSeconds ?? 300,
+      priority: stop.priority,
+      skills: stop.skills,
     }));
+
+    const shipments = Array.isArray(payload.shipments)
+      ? payload.shipments.map((shipment: any) => ({
+          id: shipment.id,
+          pickup: {
+            id: shipment.pickup.id,
+            location: shipment.pickup.location,
+            service: shipment.pickup.serviceSeconds ?? 300,
+          },
+          delivery: {
+            id: shipment.delivery.id,
+            location: shipment.delivery.location,
+            service: shipment.delivery.serviceSeconds ?? 300,
+          },
+          priority: shipment.priority,
+          skills: shipment.skills,
+        }))
+      : undefined;
 
     return {
       vehicles,
       jobs,
+      shipments,
       options: { g: true },
     };
   }

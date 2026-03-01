@@ -63,4 +63,51 @@ describe('DriversService', () => {
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('maps driver to login user when createLoginUser is enabled', async () => {
+    const tx = {
+      user: {
+        upsert: jest
+          .fn()
+          .mockResolvedValue({
+            id: '11111111-1111-4111-8111-111111111111',
+          }),
+      },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          id: 'driver-2',
+          organizationId: 'org-1',
+          userId: '11111111-1111-4111-8111-111111111111',
+          name: 'Driver 2',
+          email: 'driver@example.com',
+          phone: null,
+          state: 'idle',
+          shiftStartSeconds: null,
+          shiftEndSeconds: null,
+          startLocation: null,
+          endLocation: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          deletedAt: null,
+        },
+      ]),
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    } as any;
+
+    const service = new DriversService(prisma);
+    const result = await service.create('org-1', {
+      name: 'Driver 2',
+      email: 'driver@example.com',
+      createLoginUser: true,
+    });
+
+    expect(tx.user.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(result.userId).toBe('11111111-1111-4111-8111-111111111111');
+  });
 });

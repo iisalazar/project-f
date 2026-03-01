@@ -41,6 +41,15 @@ export class V2PayloadService {
       driverIds.add(driver.id);
       this.assertLocation(driver.startLocation, 'driver.startLocation');
       this.assertLocation(driver.endLocation, 'driver.endLocation');
+      if (driver.breaks) {
+        for (const breakItem of driver.breaks) {
+          if (breakItem.timeWindows) {
+            for (const timeWindow of breakItem.timeWindows) {
+              this.assertTimeWindow(timeWindow, 'driver.breaks.timeWindows');
+            }
+          }
+        }
+      }
     }
 
     const stopIds = new Set<number>();
@@ -53,6 +62,25 @@ export class V2PayloadService {
       }
       stopIds.add(stop.id);
       this.assertLocation(stop.location, 'stop.location');
+      if (stop.skills) {
+        this.assertSkills(stop.skills, 'stop.skills');
+      }
+    }
+
+    if (Array.isArray(payload.shipments)) {
+      for (const shipment of payload.shipments) {
+        if (!shipment?.id) {
+          throw new BadRequestException('shipment.id is required');
+        }
+        this.assertLocation(shipment.pickup?.location, 'shipment.pickup.location');
+        this.assertLocation(
+          shipment.delivery?.location,
+          'shipment.delivery.location',
+        );
+        if (shipment.skills) {
+          this.assertSkills(shipment.skills, 'shipment.skills');
+        }
+      }
     }
 
     return {
@@ -61,10 +89,25 @@ export class V2PayloadService {
         ...driver,
         availabilityWindow: driver.availabilityWindow ?? DEFAULT_WINDOW,
         maxTasks: driver.maxTasks ?? 4,
+        breaks: driver.breaks?.map((breakItem) => ({
+          ...breakItem,
+          timeWindows: breakItem.timeWindows,
+        })),
       })),
       stops: stops.map((stop) => ({
         ...stop,
         serviceSeconds: stop.serviceSeconds ?? 300,
+      })),
+      shipments: payload.shipments?.map((shipment) => ({
+        ...shipment,
+        pickup: {
+          ...shipment.pickup,
+          serviceSeconds: shipment.pickup.serviceSeconds ?? 300,
+        },
+        delivery: {
+          ...shipment.delivery,
+          serviceSeconds: shipment.delivery.serviceSeconds ?? 300,
+        },
       })),
     };
   }
@@ -129,6 +172,11 @@ export class V2PayloadService {
           endLocation: vehicle.end ?? vehicle.start,
           availabilityWindow: vehicle.time_window ?? DEFAULT_WINDOW,
           maxTasks: vehicle.max_tasks,
+          breaks: vehicle.breaks?.map((item) => ({
+            id: item.id,
+            serviceSeconds: item.service,
+            timeWindows: item.time_windows,
+          })),
         };
       });
       metadata = { driverSource: 'vehicles' };
@@ -145,12 +193,45 @@ export class V2PayloadService {
         id: job.id,
         location: job.location,
         serviceSeconds: job.service,
+        priority: job.priority,
+        skills: job.skills,
+      };
+    });
+
+    const shipments = payload.shipments?.map((shipment) => {
+      if (!shipment?.id) {
+        throw new BadRequestException('shipment.id is required');
+      }
+      this.assertLocation(shipment.pickup?.location, 'shipment.pickup.location');
+      this.assertLocation(
+        shipment.delivery?.location,
+        'shipment.delivery.location',
+      );
+      if (shipment.skills) {
+        this.assertSkills(shipment.skills, 'shipment.skills');
+      }
+
+      return {
+        id: shipment.id,
+        skills: shipment.skills,
+        priority: shipment.priority,
+        pickup: {
+          id: shipment.pickup.id,
+          location: shipment.pickup.location,
+          serviceSeconds: shipment.pickup.service,
+        },
+        delivery: {
+          id: shipment.delivery.id,
+          location: shipment.delivery.location,
+          serviceSeconds: shipment.delivery.service,
+        },
       };
     });
 
     return this.normalizeLegacyPayload({
       drivers,
       stops,
+      shipments,
       planDate,
       selectedDriverIds:
         selectedDriverIds.length > 0 ? selectedDriverIds : undefined,
@@ -269,6 +350,29 @@ export class V2PayloadService {
     }
     if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
       throw new BadRequestException(`${label} out of range`);
+    }
+  }
+
+  private assertSkills(value: unknown, label: string) {
+    if (
+      !Array.isArray(value) ||
+      !value.every(
+        (item) => Number.isInteger(item) && Number(item) >= 0,
+      )
+    ) {
+      throw new BadRequestException(`${label} must be an array of integers`);
+    }
+  }
+
+  private assertTimeWindow(value: unknown, label: string) {
+    if (
+      !Array.isArray(value) ||
+      value.length !== 2 ||
+      !Number.isFinite(value[0]) ||
+      !Number.isFinite(value[1]) ||
+      Number(value[0]) > Number(value[1])
+    ) {
+      throw new BadRequestException(`${label} must be [start, end] seconds`);
     }
   }
 

@@ -6,7 +6,10 @@ import {
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { AssignRoutePlanDriverDto } from '../dto/route-plans.dto';
+import type {
+  AssignRoutePlanDriverDto,
+  ReorderRouteStopsDto,
+} from '../dto/route-plans.dto';
 
 @Injectable()
 export class RoutePlansService {
@@ -345,6 +348,83 @@ export class RoutePlansService {
       driverId: payload.driverId,
       vehicleId: payload.vehicleId ?? null,
       status: 'assigned',
+    };
+  }
+
+  async reorderStops(
+    ownerUserId: string,
+    organizationId: string,
+    routePlanId: string,
+    payload: ReorderRouteStopsDto,
+  ) {
+    this.assertUuid(routePlanId, 'id');
+    if (!Array.isArray(payload.routeStopIds) || payload.routeStopIds.length === 0) {
+      throw new BadRequestException('routeStopIds must be a non-empty array');
+    }
+    for (const routeStopId of payload.routeStopIds) {
+      this.assertUuid(routeStopId, 'routeStopId');
+    }
+
+    const existsRows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id"
+      FROM "RoutePlan"
+      WHERE "id" = ${routePlanId}::uuid
+      AND "organizationId" = ${organizationId}::uuid
+      LIMIT 1
+    `);
+    if (!existsRows[0]) {
+      throw new NotFoundException('Route plan not found');
+    }
+
+    const knownStops = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id"
+      FROM "RouteStop"
+      WHERE "routePlanId" = ${routePlanId}::uuid
+      AND "id" IN (${Prisma.join(payload.routeStopIds.map((id) => Prisma.sql`${id}::uuid`))})
+    `);
+    if (knownStops.length !== payload.routeStopIds.length) {
+      throw new BadRequestException('One or more routeStopIds are not in the route plan');
+    }
+
+    const now = new Date();
+    for (let idx = 0; idx < payload.routeStopIds.length; idx += 1) {
+      const routeStopId = payload.routeStopIds[idx];
+      await this.prisma.$executeRaw`
+        UPDATE "RouteStop"
+        SET
+          "stopOrder" = ${idx + 1},
+          "etaAt" = ${new Date(now.getTime() + idx * 5 * 60 * 1000)},
+          "updatedAt" = ${now}
+        WHERE "id" = ${routeStopId}::uuid
+        AND "routePlanId" = ${routePlanId}::uuid
+      `;
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE "RoutePlan"
+      SET "updatedAt" = ${now}
+      WHERE "id" = ${routePlanId}::uuid
+    `;
+
+    await this.prisma.$executeRaw`
+      INSERT INTO "ExecutionEvent"
+        ("id", "ownerUserId", "organizationId", "eventType", "entityId", "data", "createdAt")
+      VALUES
+        (
+          ${randomUUID()}::uuid,
+          ${ownerUserId}::uuid,
+          ${organizationId}::uuid,
+          'route.stop.reordered',
+          ${routePlanId}::uuid,
+          ${JSON.stringify({ routeStopIds: payload.routeStopIds })}::jsonb,
+          ${now}
+        )
+    `;
+
+    return {
+      routePlanId,
+      reordered: payload.routeStopIds.length,
+      status: 'reordered',
     };
   }
 
