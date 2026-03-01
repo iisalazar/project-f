@@ -1,4 +1,5 @@
 import { RoutePlansService } from './route-plans.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('RoutePlansService', () => {
   it('lists route plans with filters', async () => {
@@ -36,7 +37,12 @@ describe('RoutePlansService', () => {
             planDate: '2026-03-01',
           },
         ])
-        .mockResolvedValueOnce([{ id: '22222222-2222-4222-8222-222222222222' }])
+        .mockResolvedValueOnce([
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            userId: '44444444-4444-4444-8444-444444444444',
+          },
+        ])
         .mockResolvedValueOnce([
           { id: '33333333-3333-4333-8333-333333333333' },
         ]),
@@ -55,5 +61,39 @@ describe('RoutePlansService', () => {
 
     expect(result.status).toBe('assigned');
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(4);
+  });
+
+  it('rejects driver assignment when selected driver has no linked user account', async () => {
+    const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            planDate: '2026-03-01',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            userId: null,
+          },
+        ]),
+      $executeRaw: jest.fn(),
+    } as any;
+
+    const service = new RoutePlansService(prisma);
+    await expect(
+      service.assignDriver(
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        '11111111-1111-4111-8111-111111111111',
+        {
+          driverId: '22222222-2222-4222-8222-222222222222',
+        },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 });

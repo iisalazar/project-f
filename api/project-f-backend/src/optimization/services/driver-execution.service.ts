@@ -7,10 +7,14 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { DriverStopStatusUpdateDto } from '../dto/driver.dto';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 @Injectable()
 export class DriverExecutionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async getTodayTrip(actorUserId: string, organizationId: string) {
     const rows = await this.prisma.$queryRaw<
@@ -220,9 +224,10 @@ export class DriverExecutionService {
     tripStopId: string,
     payload: DriverStopStatusUpdateDto,
   ) {
+    this.assertUuid(tripStopId, 'id');
     const now = new Date();
 
-    await this.prisma.$executeRaw`
+    const updatedRows = await this.prisma.$executeRaw`
       UPDATE "TripStop" ts
       SET "status" = (${payload.status})::"TripStopStatus", "updatedAt" = ${now}
       FROM "Trip" t, "Driver" d
@@ -234,12 +239,43 @@ export class DriverExecutionService {
       AND d."deletedAt" IS NULL
     `;
 
+    if (Number(updatedRows) === 0) {
+      throw new NotFoundException('Trip stop not found');
+    }
+
     await this.prisma.$executeRaw`
       INSERT INTO "ExecutionEvent"
         ("id", "ownerUserId", "eventType", "entityId", "data", "createdAt")
       VALUES
         (${randomUUID()}::uuid, ${actorUserId}::uuid, 'driver.stop.status.updated', ${tripStopId}::uuid, ${JSON.stringify(payload)}::jsonb, ${now})
     `;
+
+    const notificationEventType = this.toNotificationEventType(payload.status);
+    if (notificationEventType) {
+      const recipientRows = await this.prisma.$queryRaw<
+        Array<{ externalRef: string | null }>
+      >(Prisma.sql`
+        SELECT s."externalRef"
+        FROM "TripStop" ts
+        LEFT JOIN "Stop" s ON s."id" = ts."stopId"
+        WHERE ts."id" = ${tripStopId}::uuid
+        LIMIT 1
+      `);
+      const recipient = Array.isArray(recipientRows)
+        ? recipientRows[0]?.externalRef ?? undefined
+        : undefined;
+      await this.notificationsService.enqueueEvent(
+        actorUserId,
+        organizationId,
+        notificationEventType,
+        {
+          tripStopId,
+          status: payload.status,
+          note: payload.note,
+          recipient,
+        },
+      );
+    }
 
     return {
       tripStopId,
@@ -263,5 +299,13 @@ export class DriverExecutionService {
     ) {
       throw new BadRequestException(`${field} must be a valid UUID`);
     }
+  }
+
+  private toNotificationEventType(status: string): string | null {
+    if (status === 'enroute') return 'stop.enroute';
+    if (status === 'arrived') return 'stop.arrived';
+    if (status === 'completed') return 'stop.delivered';
+    if (status === 'failed') return 'stop.failed';
+    return null;
   }
 }

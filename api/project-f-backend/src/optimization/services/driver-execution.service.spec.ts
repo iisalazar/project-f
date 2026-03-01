@@ -2,13 +2,17 @@ import { BadRequestException } from '@nestjs/common';
 import { DriverExecutionService } from './driver-execution.service';
 
 describe('DriverExecutionService', () => {
+  const notifications = {
+    enqueueEvent: jest.fn().mockResolvedValue({ queued: true }),
+  } as any;
+
   it('returns null when no trip exists for today', async () => {
     const prisma = {
       $queryRaw: jest.fn().mockResolvedValue([]),
       $executeRaw: jest.fn(),
     } as any;
 
-    const service = new DriverExecutionService(prisma);
+    const service = new DriverExecutionService(prisma, notifications);
     const result = await service.getTodayTrip(
       '11111111-1111-4111-8111-111111111111',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -35,7 +39,7 @@ describe('DriverExecutionService', () => {
       $executeRaw: jest.fn(),
     } as any;
 
-    const service = new DriverExecutionService(prisma);
+    const service = new DriverExecutionService(prisma, notifications);
     const result = await service.listTripsByDate(
       '11111111-1111-4111-8111-111111111111',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -52,7 +56,7 @@ describe('DriverExecutionService', () => {
       $executeRaw: jest.fn(),
     } as any;
 
-    const service = new DriverExecutionService(prisma);
+    const service = new DriverExecutionService(prisma, notifications);
 
     await expect(
       service.listTripsByDateRange(
@@ -79,7 +83,7 @@ describe('DriverExecutionService', () => {
       $executeRaw: jest.fn(),
     } as any;
 
-    const service = new DriverExecutionService(prisma);
+    const service = new DriverExecutionService(prisma, notifications);
     const result = await service.listDriverStops(
       '11111111-1111-4111-8111-111111111111',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -95,7 +99,7 @@ describe('DriverExecutionService', () => {
       $executeRaw: jest.fn().mockResolvedValue(1),
     } as any;
 
-    const service = new DriverExecutionService(prisma);
+    const service = new DriverExecutionService(prisma, notifications);
     const result = await service.updateStopStatus(
       '11111111-1111-4111-8111-111111111111',
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -105,5 +109,28 @@ describe('DriverExecutionService', () => {
 
     expect(result.status).toBe('arrived');
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws when stop status update does not affect any rows', async () => {
+    const prisma = {
+      $queryRaw: jest.fn(),
+      $executeRaw: jest
+        .fn()
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1),
+    } as any;
+
+    const service = new DriverExecutionService(prisma, notifications);
+
+    await expect(
+      service.updateStopStatus(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '22222222-2222-4222-8222-222222222222',
+        { status: 'arrived', note: 'At gate' },
+      ),
+    ).rejects.toThrow('Trip stop not found');
+
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
   });
 });
