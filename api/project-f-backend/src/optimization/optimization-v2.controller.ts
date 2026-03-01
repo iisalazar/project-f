@@ -13,13 +13,16 @@ import {
 import type { Request } from 'express';
 import { CommandBus } from '@nestjs/cqrs';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { OrganizationAccessGuard } from '../auth/guards/organization-access.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateV2OptimizationCommand } from './commands/create-v2-optimization.command';
 import type { VroomOptimizationRequestDto } from './dto/vroom-optimization.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('v1/optimizations')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, OrganizationAccessGuard, RolesGuard)
 export class OptimizationV2Controller {
   constructor(
     private readonly commandBus: CommandBus,
@@ -27,6 +30,7 @@ export class OptimizationV2Controller {
   ) {}
 
   @Post()
+  @Roles('org_admin', 'dispatcher')
   async create(@Body() body: VroomOptimizationRequestDto, @Req() request: Request) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
@@ -34,6 +38,7 @@ export class OptimizationV2Controller {
   }
 
   @Get(':jobId')
+  @Roles('org_admin', 'dispatcher', 'viewer', 'driver')
   async getStatus(@Req() request: Request, @Param('jobId', new ParseUUIDPipe()) jobId: string) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
@@ -74,6 +79,7 @@ export class OptimizationV2Controller {
   }
 
   @Get(':jobId/solution')
+  @Roles('org_admin', 'dispatcher', 'viewer', 'driver')
   async getSolution(@Req() request: Request, @Param('jobId', new ParseUUIDPipe()) jobId: string) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;

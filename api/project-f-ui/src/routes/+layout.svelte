@@ -13,6 +13,7 @@
 			<div class="muted" style="font-size:13px;">Plan, dispatch, and execute routes</div>
 		</div>
 		<nav style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;">
+			<a class="badge" href="/drivers">Drivers</a>
 			<a class="badge" href="/plan">Plan</a>
 			<a class="badge" href="/dispatch">Dispatch</a>
 			<a class="badge" href="/driver/today">Driver</a>
