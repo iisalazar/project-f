@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { SqsModule } from '@ssut/nestjs-sqs';
 import { SQSClient } from '@aws-sdk/client-sqs';
+import { AuthModule } from '../auth/auth.module';
 import { OptimizationController } from './optimization.controller';
 import { OptimizationV2Controller } from './optimization-v2.controller';
 import { PlanController } from './plan.controller';
@@ -19,6 +20,7 @@ import { DriverExecutionService } from './services/driver-execution.service';
 
 @Module({
   imports: [
+    AuthModule,
     CqrsModule,
     SqsModule.registerAsync({
       useFactory: () => {
