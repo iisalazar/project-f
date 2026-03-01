@@ -7,4 +7,5 @@ export interface DispatchRouteRequestDto {
 export interface DispatchStopRequestDto {
   stopId: string;
   driverId: string;
+  vehicleId?: string;
 }

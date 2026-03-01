@@ -19,10 +19,12 @@ import { V2PayloadService } from './services/v2-payload.service';
 import { DispatchService } from './services/dispatch.service';
 import { DriverExecutionService } from './services/driver-execution.service';
 import { RoutePlansService } from './services/route-plans.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     AuthModule,
+    NotificationsModule,
     CqrsModule,
     SqsModule.registerAsync({
       useFactory: () => {
