@@ -21,6 +21,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+interface MiddayReplanDto {
+  routePlanId: string;
+  additionalStopIds?: string[];
+}
+
 @Controller('v1/optimizations')
 @UseGuards(AuthGuard, OrganizationAccessGuard, RolesGuard)
 export class OptimizationV2Controller {
@@ -41,6 +46,60 @@ export class OptimizationV2Controller {
     const organizationId = request.authContext.activeOrganizationId as string;
     return this.commandBus.execute(
       new CreateV2OptimizationCommand(body, ownerUserId, organizationId),
+    );
+  }
+
+  @Post('replan-midday')
+  @Roles('org_admin', 'dispatcher')
+  async replanMidday(@Body() body: MiddayReplanDto, @Req() request: Request) {
+    // @ts-ignore
+    const ownerUserId = request.user?.id as string;
+    // @ts-ignore
+    const organizationId = request.authContext.activeOrganizationId as string;
+
+    const additionalStopIds = Array.isArray(body.additionalStopIds)
+      ? body.additionalStopIds.filter((id) => typeof id === 'string')
+      : [];
+
+    const [driverRows, stopRows] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ driverId: string }>>(Prisma.sql`
+        SELECT DISTINCT t."driverId" AS "driverId"
+        FROM "Trip" t
+        WHERE t."routePlanId" = ${body.routePlanId}::uuid
+        AND t."organizationId" = ${organizationId}::uuid
+        AND t."driverId" IS NOT NULL
+      `),
+      additionalStopIds.length > 0
+        ? this.prisma.$queryRaw<
+            Array<{ id: string; location: Prisma.JsonValue }>
+          >(Prisma.sql`
+            SELECT "id", "location"
+            FROM "Stop"
+            WHERE "organizationId" = ${organizationId}::uuid
+            AND "id" IN (${Prisma.join(additionalStopIds.map((id) => Prisma.sql`${id}::uuid`))})
+          `)
+        : Promise.resolve([]),
+    ]);
+
+    if (driverRows.length === 0) {
+      throw new ConflictException('No assigned drivers found for route plan');
+    }
+
+    if (stopRows.length !== additionalStopIds.length) {
+      throw new NotFoundException('One or more additionalStopIds were not found');
+    }
+
+    const payload: VroomOptimizationRequestDto = {
+      selectedDriverIds: driverRows.map((row) => row.driverId),
+      jobs: stopRows.map((row, index) => ({
+        id: index + 1,
+        // @ts-ignore
+        location: row.location,
+      })),
+    };
+
+    return this.commandBus.execute(
+      new CreateV2OptimizationCommand(payload, ownerUserId, organizationId),
     );
   }
 

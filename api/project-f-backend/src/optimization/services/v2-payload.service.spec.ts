@@ -129,4 +129,54 @@ describe('V2PayloadService', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('supports advanced constraints (shipments, job skills/priorities, breaks)', async () => {
+    const normalized = await service.vroomToLegacyPayload(
+      {
+        vehicles: [
+          {
+            id: 3,
+            start: [121.5, 14.5],
+            breaks: [{ id: 'b1', service: 900, time_windows: [[36000, 39600]] }],
+          },
+        ],
+        jobs: [
+          {
+            id: 201,
+            location: [121.6, 14.6],
+            service: 120,
+            priority: 50,
+            skills: [1, 2],
+          },
+        ],
+        shipments: [
+          {
+            id: 301,
+            pickup: { id: 302, location: [121.7, 14.7], service: 60 },
+            delivery: { id: 303, location: [121.8, 14.8], service: 80 },
+            priority: 90,
+            skills: [3],
+          },
+        ],
+      },
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      {
+        $queryRaw: jest.fn(),
+      } as any,
+    );
+
+    expect(normalized.drivers[0].breaks?.[0]).toMatchObject({
+      id: 'b1',
+      serviceSeconds: 900,
+    });
+    expect(normalized.stops[0]).toMatchObject({
+      priority: 50,
+      skills: [1, 2],
+    });
+    expect(normalized.shipments?.[0]).toMatchObject({
+      id: 301,
+      priority: 90,
+      skills: [3],
+    });
+  });
 });
