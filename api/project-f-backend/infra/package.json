@@ -4,8 +4,8 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "pulumi up --yes",
+    "build": "node api.js && tsc",
+    "dev": "node api.js && pulumi up --yes",
     "preview": "pulumi preview",
     "up": "pulumi up",
     "destroy": "pulumi destroy"
