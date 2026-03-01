@@ -410,34 +410,11 @@
                 </td>
                 <td style="padding:10px;">
                   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={driver.startLocation?.[0] ?? ''}
-                      on:input={(event) =>
-                        updateLocationPart(
-                          idx,
-                          'driver-start',
-                          'lon',
-                          (event.target as HTMLInputElement).value,
-                        )
-                      }
-                      style="max-width:120px;"
-                    />
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={driver.startLocation?.[1] ?? ''}
-                      on:input={(event) =>
-                        updateLocationPart(
-                          idx,
-                          'driver-start',
-                          'lat',
-                          (event.target as HTMLInputElement).value,
-                        )
-                      }
-                      style="max-width:120px;"
-                    />
+                    <span class="muted" style="min-width:180px;">
+                      {driver.startLocation
+                        ? `${driver.startLocation[0].toFixed(6)}, ${driver.startLocation[1].toFixed(6)}`
+                        : 'No point selected'}
+                    </span>
                     <button
                       class="button secondary"
                       on:click={() => openPicker({ kind: 'driver-start', index: idx })}
@@ -448,34 +425,11 @@
                 </td>
                 <td style="padding:10px;">
                   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={driver.endLocation?.[0] ?? ''}
-                      on:input={(event) =>
-                        updateLocationPart(
-                          idx,
-                          'driver-end',
-                          'lon',
-                          (event.target as HTMLInputElement).value,
-                        )
-                      }
-                      style="max-width:120px;"
-                    />
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={driver.endLocation?.[1] ?? ''}
-                      on:input={(event) =>
-                        updateLocationPart(
-                          idx,
-                          'driver-end',
-                          'lat',
-                          (event.target as HTMLInputElement).value,
-                        )
-                      }
-                      style="max-width:120px;"
-                    />
+                    <span class="muted" style="min-width:180px;">
+                      {driver.endLocation
+                        ? `${driver.endLocation[0].toFixed(6)}, ${driver.endLocation[1].toFixed(6)}`
+                        : 'No point selected'}
+                    </span>
                     <button
                       class="button secondary"
                       on:click={() => openPicker({ kind: 'driver-end', index: idx })}
@@ -515,34 +469,11 @@
                 <td style="padding:10px;">{stop.rowId}</td>
                 <td style="padding:10px;">
                   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={stop.location?.[0] ?? ''}
-                      on:input={(event) =>
-                        updateLocationPart(
-                          idx,
-                          'stop',
-                          'lon',
-                          (event.target as HTMLInputElement).value,
-                        )
-                      }
-                      style="max-width:120px;"
-                    />
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={stop.location?.[1] ?? ''}
-                      on:input={(event) =>
-                        updateLocationPart(
-                          idx,
-                          'stop',
-                          'lat',
-                          (event.target as HTMLInputElement).value,
-                        )
-                      }
-                      style="max-width:120px;"
-                    />
+                    <span class="muted" style="min-width:180px;">
+                      {stop.location
+                        ? `${stop.location[0].toFixed(6)}, ${stop.location[1].toFixed(6)}`
+                        : 'No point selected'}
+                    </span>
                     <button class="button secondary" on:click={() => openPicker({ kind: 'stop', index: idx })}>
                       Pick
                     </button>

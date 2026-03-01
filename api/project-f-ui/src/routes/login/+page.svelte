@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { apiFetch } from '$lib/api';
-  import { goto } from '$app/navigation';
+import { apiFetch } from '$lib/api';
+import { goto } from '$app/navigation';
+import { getMe } from '$lib/services/auth-api';
 
   let email = '';
   let purpose: 'login' | 'signup' = 'login';
@@ -31,8 +32,13 @@
         method: 'POST',
         body: JSON.stringify({ email, purpose, code: otp }),
       });
+      const me = await getMe();
       status = 'Verified. Redirecting…';
-      await goto('/jobs');
+      if (me.auth?.needsOnboarding) {
+        await goto('/onboarding/organization');
+        return;
+      }
+      await goto('/plan');
     } catch (err) {
       error = (err as Error).message;
       status = '';
