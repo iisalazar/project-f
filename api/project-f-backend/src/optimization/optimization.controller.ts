@@ -1,6 +1,22 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
-import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CreateOptimizationJobCommand } from './commands/create-optimization-job.command';
@@ -26,9 +42,21 @@ export class OptimizationController {
             properties: {
               id: { type: 'string', example: 'driver-1' },
               name: { type: 'string', example: 'Juan Dela Cruz' },
-              startLocation: { type: 'array', items: { type: 'number' }, example: [121.0437, 14.676] },
-              endLocation: { type: 'array', items: { type: 'number' }, example: [121.0437, 14.676] },
-              availabilityWindow: { type: 'array', items: { type: 'number' }, example: [28800, 61200] },
+              startLocation: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [121.0437, 14.676],
+              },
+              endLocation: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [121.0437, 14.676],
+              },
+              availabilityWindow: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [28800, 61200],
+              },
               maxTasks: { type: 'number', example: 4 },
             },
             required: ['id', 'name', 'startLocation', 'endLocation'],
@@ -40,7 +68,11 @@ export class OptimizationController {
             type: 'object',
             properties: {
               id: { type: 'string', example: 'stop-1' },
-              location: { type: 'array', items: { type: 'number' }, example: [121.0509, 14.5547] },
+              location: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [121.0509, 14.5547],
+              },
               serviceSeconds: { type: 'number', example: 300 },
             },
             required: ['id', 'location'],
@@ -61,8 +93,12 @@ export class OptimizationController {
               },
             ],
             stops: [
-              { id: 'stop-1', location: [121.0509, 14.5547], serviceSeconds: 300 },
-              { id: 'stop-2', location: [121.0600, 14.5600], serviceSeconds: 180 },
+              {
+                id: 'stop-1',
+                location: [121.0509, 14.5547],
+                serviceSeconds: 300,
+              },
+              { id: 'stop-2', location: [121.06, 14.56], serviceSeconds: 180 },
             ],
           },
         },
@@ -71,10 +107,15 @@ export class OptimizationController {
   })
   @ApiResponse({ status: 201, description: 'Job created' })
   @Post('jobs')
-  async create(@Body() body: CreateOptimizationJobRequestDto, @Req() request: Request) {
+  async create(
+    @Body() body: CreateOptimizationJobRequestDto,
+    @Req() request: Request,
+  ) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
-    return this.commandBus.execute(new CreateOptimizationJobCommand(body, ownerUserId));
+    return this.commandBus.execute(
+      new CreateOptimizationJobCommand(body, ownerUserId),
+    );
   }
 
   @ApiOperation({ summary: 'List optimization jobs' })
@@ -104,7 +145,11 @@ export class OptimizationController {
   @ApiOperation({ summary: 'Get optimization job details' })
   @ApiResponse({ status: 200, description: 'Job details' })
   @ApiResponse({ status: 404, description: 'Job not found' })
-  @ApiParam({ name: 'jobId', required: true, description: 'Optimization job UUID' })
+  @ApiParam({
+    name: 'jobId',
+    required: true,
+    description: 'Optimization job UUID',
+  })
   @Get('jobs/:jobId')
   async get(
     @Req() request: Request,
@@ -112,6 +157,8 @@ export class OptimizationController {
   ) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
-    return this.commandBus.execute(new GetOptimizationJobCommand(ownerUserId, jobId));
+    return this.commandBus.execute(
+      new GetOptimizationJobCommand(ownerUserId, jobId),
+    );
   }
 }

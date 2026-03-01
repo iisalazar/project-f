@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateDriverDto } from './dto/create-driver.dto';
@@ -7,6 +11,7 @@ import type { UpdateDriverDto } from './dto/update-driver.dto';
 interface DriverRow {
   id: string;
   organizationId: string;
+  userId: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -32,37 +37,78 @@ export class DriversService {
     this.validateOptionalLocation(payload.startLocation, 'startLocation');
     this.validateOptionalLocation(payload.endLocation, 'endLocation');
 
-    const rows = await this.prisma.$queryRaw<DriverRow[]>(Prisma.sql`
-      INSERT INTO "Driver"
-        ("id", "organizationId", "name", "email", "phone", "state", "shiftStartSeconds", "shiftEndSeconds", "startLocation", "endLocation", "createdAt", "updatedAt")
-      VALUES
-        (
-          gen_random_uuid(),
-          ${organizationId}::uuid,
-          ${payload.name.trim()},
-          ${payload.email?.trim() || null},
-          ${payload.phone?.trim() || null},
-          (${payload.state ?? 'idle'})::"DriverState",
-          ${payload.shiftStartSeconds ?? null},
-          ${payload.shiftEndSeconds ?? null},
-          ${payload.startLocation ? JSON.stringify(payload.startLocation) : null}::jsonb,
-          ${payload.endLocation ? JSON.stringify(payload.endLocation) : null}::jsonb,
-          NOW(),
-          NOW()
-        )
-      RETURNING *
-    `);
+    const email = payload.email?.trim() || null;
+    const shouldCreateLogin = Boolean(payload.createLoginUser);
+    if (shouldCreateLogin && !email) {
+      throw new BadRequestException(
+        'email is required when createLoginUser is enabled',
+      );
+    }
+
+    const rows = await this.prisma.$transaction(async (tx) => {
+      let userId: string | null = null;
+      if (shouldCreateLogin && email) {
+        const user = await tx.user.upsert({
+          where: { email },
+          update: {},
+          create: { email },
+          select: { id: true },
+        });
+        userId = user.id;
+
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO "OrganizationUserRole" ("id", "organizationId", "userId", "role", "status", "createdAt")
+          VALUES (gen_random_uuid(), ${organizationId}::uuid, ${userId}::uuid, 'driver', 'active', NOW())
+          ON CONFLICT ("organizationId", "userId") DO NOTHING
+        `);
+      }
+
+      return tx.$queryRaw<DriverRow[]>(Prisma.sql`
+        INSERT INTO "Driver"
+          ("id", "organizationId", "userId", "name", "email", "phone", "state", "shiftStartSeconds", "shiftEndSeconds", "startLocation", "endLocation", "createdAt", "updatedAt")
+        VALUES
+          (
+            gen_random_uuid(),
+            ${organizationId}::uuid,
+            ${userId}::uuid,
+            ${payload.name.trim()},
+            ${email},
+            ${payload.phone?.trim() || null},
+            (${payload.state ?? 'idle'})::"DriverState",
+            ${payload.shiftStartSeconds ?? null},
+            ${payload.shiftEndSeconds ?? null},
+            ${payload.startLocation ? JSON.stringify(payload.startLocation) : null}::jsonb,
+            ${payload.endLocation ? JSON.stringify(payload.endLocation) : null}::jsonb,
+            NOW(),
+            NOW()
+          )
+        RETURNING *
+      `);
+    });
 
     return this.toPublic(rows[0]);
   }
 
-  async list(organizationId: string, params: { search?: string; state?: string; page?: number; pageSize?: number }) {
+  async list(
+    organizationId: string,
+    params: {
+      search?: string;
+      state?: string;
+      page?: number;
+      pageSize?: number;
+      linkedUserId?: string;
+    },
+  ) {
     const pageSize = Math.min(Math.max(Number(params.pageSize ?? 20), 1), 100);
     const page = Math.max(Number(params.page ?? 1), 1);
     const offset = (page - 1) * pageSize;
 
     const state = params.state?.trim() || null;
     const search = params.search?.trim() || null;
+    const linkedUserId = params.linkedUserId?.trim() || null;
+    if (linkedUserId) {
+      this.assertUuid(linkedUserId, 'linkedUserId');
+    }
 
     const [items, totalRows] = await Promise.all([
       this.prisma.$queryRaw<DriverRow[]>(Prisma.sql`
@@ -70,6 +116,7 @@ export class DriversService {
         FROM "Driver"
         WHERE "organizationId" = ${organizationId}::uuid
           AND "deletedAt" IS NULL
+          AND (${linkedUserId}::text IS NULL OR "userId" = ${linkedUserId}::uuid)
           AND (${state}::text IS NULL OR "state" = (${state})::"DriverState")
           AND (
             ${search}::text IS NULL
@@ -86,6 +133,7 @@ export class DriversService {
         FROM "Driver"
         WHERE "organizationId" = ${organizationId}::uuid
           AND "deletedAt" IS NULL
+          AND (${linkedUserId}::text IS NULL OR "userId" = ${linkedUserId}::uuid)
           AND (${state}::text IS NULL OR "state" = (${state})::"DriverState")
           AND (
             ${search}::text IS NULL
@@ -122,7 +170,11 @@ export class DriversService {
     return this.toPublic(rows[0]);
   }
 
-  async update(organizationId: string, driverId: string, payload: UpdateDriverDto) {
+  async update(
+    organizationId: string,
+    driverId: string,
+    payload: UpdateDriverDto,
+  ) {
     this.assertUuid(driverId, 'driverId');
     this.validateOptionalLocation(payload.startLocation, 'startLocation');
     this.validateOptionalLocation(payload.endLocation, 'endLocation');
@@ -174,6 +226,7 @@ export class DriversService {
     return {
       id: row.id,
       organizationId: row.organizationId,
+      userId: row.userId,
       name: row.name,
       email: row.email,
       phone: row.phone,
@@ -188,7 +241,11 @@ export class DriversService {
   }
 
   private assertUuid(value: string, field: string) {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value,
+      )
+    ) {
       throw new BadRequestException(`${field} must be a valid UUID`);
     }
   }

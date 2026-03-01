@@ -2,13 +2,20 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { DispatchRouteRequestDto, DispatchStopRequestDto } from '../dto/dispatch.dto';
+import type {
+  DispatchRouteRequestDto,
+  DispatchStopRequestDto,
+} from '../dto/dispatch.dto';
 
 @Injectable()
 export class DispatchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async dispatchRoute(ownerUserId: string, organizationId: string, payload: DispatchRouteRequestDto) {
+  async dispatchRoute(
+    ownerUserId: string,
+    organizationId: string,
+    payload: DispatchRouteRequestDto,
+  ) {
     await this.ensureDriverInOrganization(organizationId, payload.driverId);
     const id = randomUUID();
     const now = new Date();
@@ -29,7 +36,11 @@ export class DispatchService {
     return { dispatchId: id, status: 'assigned' };
   }
 
-  async dispatchStop(ownerUserId: string, organizationId: string, payload: DispatchStopRequestDto) {
+  async dispatchStop(
+    ownerUserId: string,
+    organizationId: string,
+    payload: DispatchStopRequestDto,
+  ) {
     await this.ensureDriverInOrganization(organizationId, payload.driverId);
     const id = randomUUID();
     const now = new Date();
@@ -50,7 +61,10 @@ export class DispatchService {
     return { dispatchId: id, status: 'assigned' };
   }
 
-  private async ensureDriverInOrganization(organizationId: string, driverId: string) {
+  private async ensureDriverInOrganization(
+    organizationId: string,
+    driverId: string,
+  ) {
     const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT "id"
       FROM "Driver"
@@ -61,7 +75,9 @@ export class DispatchService {
     `);
 
     if (!rows[0]) {
-      throw new BadRequestException('Driver is not available in the active organization');
+      throw new BadRequestException(
+        'Driver is not available in the active organization',
+      );
     }
   }
 }

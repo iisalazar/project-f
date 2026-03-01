@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -8,13 +12,14 @@ import type { DriverStopStatusUpdateDto } from '../dto/driver.dto';
 export class DriverExecutionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getTodayTrip(ownerUserId: string) {
+  async getTodayTrip(actorUserId: string, organizationId: string) {
     const rows = await this.prisma.$queryRaw<
       Array<{
         tripId: string;
         driverId: string;
         routePlanId: string | null;
         status: string;
+        tripDate: string;
         startAt: Date | null;
       }>
     >(Prisma.sql`
@@ -23,9 +28,13 @@ export class DriverExecutionService {
         t."driverId",
         t."routePlanId",
         t."status",
+        t."tripDate"::text AS "tripDate",
         t."startAt"
       FROM "Trip" t
-      WHERE t."ownerUserId" = ${ownerUserId}::uuid
+      JOIN "Driver" d ON d."id" = t."driverId"
+      WHERE d."userId" = ${actorUserId}::uuid
+      AND d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
       AND DATE(t."tripDate") = CURRENT_DATE
       ORDER BY t."createdAt" DESC
       LIMIT 1
@@ -34,12 +43,149 @@ export class DriverExecutionService {
     return rows[0] ?? null;
   }
 
-  async listDriverStops(ownerUserId: string) {
+  async listTripsByDate(
+    actorUserId: string,
+    organizationId: string,
+    date: string,
+  ) {
+    const tripDate = this.assertDate(date, 'date');
+
+    return this.prisma.$queryRaw<
+      Array<{
+        tripId: string;
+        routePlanId: string | null;
+        driverId: string | null;
+        vehicleId: string | null;
+        status: string;
+        tripDate: string;
+        startAt: Date | null;
+        endAt: Date | null;
+      }>
+    >(Prisma.sql`
+      SELECT
+        t."id" AS "tripId",
+        t."routePlanId",
+        t."driverId",
+        t."vehicleId",
+        t."status",
+        t."tripDate"::text AS "tripDate",
+        t."startAt",
+        t."endAt"
+      FROM "Trip" t
+      JOIN "Driver" d ON d."id" = t."driverId"
+      WHERE d."userId" = ${actorUserId}::uuid
+      AND d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
+      AND t."tripDate" = ${tripDate}::date
+      ORDER BY t."createdAt" DESC
+    `);
+  }
+
+  async listTripsByDateRange(
+    actorUserId: string,
+    organizationId: string,
+    from: string,
+    to: string,
+  ) {
+    const fromDate = this.assertDate(from, 'from');
+    const toDate = this.assertDate(to, 'to');
+    if (fromDate > toDate) {
+      throw new BadRequestException('from must be less than or equal to to');
+    }
+
+    return this.prisma.$queryRaw<
+      Array<{
+        tripId: string;
+        routePlanId: string | null;
+        driverId: string | null;
+        vehicleId: string | null;
+        status: string;
+        tripDate: string;
+        startAt: Date | null;
+        endAt: Date | null;
+      }>
+    >(Prisma.sql`
+      SELECT
+        t."id" AS "tripId",
+        t."routePlanId",
+        t."driverId",
+        t."vehicleId",
+        t."status",
+        t."tripDate"::text AS "tripDate",
+        t."startAt",
+        t."endAt"
+      FROM "Trip" t
+      JOIN "Driver" d ON d."id" = t."driverId"
+      WHERE d."userId" = ${actorUserId}::uuid
+      AND d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
+      AND t."tripDate" >= ${fromDate}::date
+      AND t."tripDate" <= ${toDate}::date
+      ORDER BY t."tripDate" ASC, t."createdAt" ASC
+    `);
+  }
+
+  async listTripStops(actorUserId: string, organizationId: string, tripId: string) {
+    this.assertUuid(tripId, 'tripId');
+
+    const tripRows = await this.prisma.$queryRaw<
+      Array<{ id: string }>
+    >(Prisma.sql`
+      SELECT t."id"
+      FROM "Trip" t
+      JOIN "Driver" d ON d."id" = t."driverId"
+      WHERE t."id" = ${tripId}::uuid
+      AND d."userId" = ${actorUserId}::uuid
+      AND d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
+      LIMIT 1
+    `);
+
+    if (!tripRows[0]) {
+      throw new NotFoundException('Trip not found');
+    }
+
     return this.prisma.$queryRaw<
       Array<{
         tripStopId: string;
         tripId: string;
-        stopId: string;
+        stopId: string | null;
+        stopOrder: number;
+        status: string;
+        etaAt: Date | null;
+        arrivedAt: Date | null;
+        completedAt: Date | null;
+        failureReason: string | null;
+      }>
+    >(Prisma.sql`
+      SELECT
+        ts."id" AS "tripStopId",
+        ts."tripId",
+        ts."stopId",
+        ts."stopOrder",
+        ts."status",
+        ts."etaAt",
+        ts."arrivedAt",
+        ts."completedAt",
+        ts."failureReason"
+      FROM "TripStop" ts
+      WHERE ts."tripId" = ${tripId}::uuid
+      ORDER BY ts."stopOrder" ASC
+    `);
+  }
+
+  async listDriverStops(
+    actorUserId: string,
+    organizationId: string,
+    date?: string,
+  ) {
+    const tripDate = date ? this.assertDate(date, 'date') : null;
+
+    return this.prisma.$queryRaw<
+      Array<{
+        tripStopId: string;
+        tripId: string;
+        stopId: string | null;
         stopOrder: number;
         status: string;
         etaAt: Date | null;
@@ -54,29 +200,45 @@ export class DriverExecutionService {
         ts."etaAt"
       FROM "TripStop" ts
       JOIN "Trip" t ON t."id" = ts."tripId"
-      WHERE t."ownerUserId" = ${ownerUserId}::uuid
-      AND DATE(t."tripDate") = CURRENT_DATE
+      JOIN "Driver" d ON d."id" = t."driverId"
+      WHERE d."userId" = ${actorUserId}::uuid
+      AND d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
+      AND (
+        ${tripDate}::text IS NULL
+        AND DATE(t."tripDate") = CURRENT_DATE
+        OR ${tripDate}::text IS NOT NULL
+        AND t."tripDate" = ${tripDate}::date
+      )
       ORDER BY ts."stopOrder" ASC
     `);
   }
 
-  async updateStopStatus(ownerUserId: string, tripStopId: string, payload: DriverStopStatusUpdateDto) {
+  async updateStopStatus(
+    actorUserId: string,
+    organizationId: string,
+    tripStopId: string,
+    payload: DriverStopStatusUpdateDto,
+  ) {
     const now = new Date();
 
     await this.prisma.$executeRaw`
       UPDATE "TripStop" ts
-      SET "status" = ${payload.status}, "updatedAt" = ${now}
-      FROM "Trip" t
+      SET "status" = (${payload.status})::"TripStopStatus", "updatedAt" = ${now}
+      FROM "Trip" t, "Driver" d
       WHERE ts."id" = ${tripStopId}::uuid
       AND ts."tripId" = t."id"
-      AND t."ownerUserId" = ${ownerUserId}::uuid
+      AND d."id" = t."driverId"
+      AND d."userId" = ${actorUserId}::uuid
+      AND d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
     `;
 
     await this.prisma.$executeRaw`
       INSERT INTO "ExecutionEvent"
         ("id", "ownerUserId", "eventType", "entityId", "data", "createdAt")
       VALUES
-        (${randomUUID()}::uuid, ${ownerUserId}::uuid, 'driver.stop.status.updated', ${tripStopId}::uuid, ${JSON.stringify(payload)}::jsonb, ${now})
+        (${randomUUID()}::uuid, ${actorUserId}::uuid, 'driver.stop.status.updated', ${tripStopId}::uuid, ${JSON.stringify(payload)}::jsonb, ${now})
     `;
 
     return {
@@ -84,5 +246,22 @@ export class DriverExecutionService {
       status: payload.status,
       updatedAt: now,
     };
+  }
+
+  private assertDate(value: string, field: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new BadRequestException(`${field} must be in YYYY-MM-DD format`);
+    }
+    return value;
+  }
+
+  private assertUuid(value: string, field: string) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value,
+      )
+    ) {
+      throw new BadRequestException(`${field} must be a valid UUID`);
+    }
   }
 }

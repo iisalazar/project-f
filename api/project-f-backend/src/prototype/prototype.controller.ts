@@ -18,7 +18,9 @@ export class PrototypeController {
         philippines: {
           summary: 'Philippines sample',
           value: {
-            vehicles: [{ id: 1, start: [121.0437, 14.676], end: [121.0437, 14.676] }],
+            vehicles: [
+              { id: 1, start: [121.0437, 14.676], end: [121.0437, 14.676] },
+            ],
             jobs: [{ id: 101, location: [121.0509, 14.5547], service: 300 }],
             options: { g: true },
           },
@@ -31,12 +33,22 @@ export class PrototypeController {
             type: 'object',
             properties: {
               id: { type: 'number', example: 1 },
-              start: { type: 'array', items: { type: 'number' }, example: [121.0437, 14.676] },
-              end: { type: 'array', items: { type: 'number' }, example: [121.0437, 14.676] },
+              start: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [121.0437, 14.676],
+              },
+              end: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [121.0437, 14.676],
+              },
             },
             required: ['id', 'start', 'end'],
           },
-          example: [{ id: 1, start: [121.0437, 14.676], end: [121.0437, 14.676] }],
+          example: [
+            { id: 1, start: [121.0437, 14.676], end: [121.0437, 14.676] },
+          ],
         },
         jobs: {
           type: 'array',
@@ -44,7 +56,11 @@ export class PrototypeController {
             type: 'object',
             properties: {
               id: { type: 'number', example: 101 },
-              location: { type: 'array', items: { type: 'number' }, example: [121.0509, 14.5547] },
+              location: {
+                type: 'array',
+                items: { type: 'number' },
+                example: [121.0509, 14.5547],
+              },
               service: { type: 'number', example: 300 },
             },
             required: ['id', 'location', 'service'],

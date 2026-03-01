@@ -31,15 +31,25 @@ export class OptimizationV2Controller {
 
   @Post()
   @Roles('org_admin', 'dispatcher')
-  async create(@Body() body: VroomOptimizationRequestDto, @Req() request: Request) {
+  async create(
+    @Body() body: VroomOptimizationRequestDto,
+    @Req() request: Request,
+  ) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
-    return this.commandBus.execute(new CreateV2OptimizationCommand(body, ownerUserId));
+    // @ts-ignore
+    const organizationId = request.authContext.activeOrganizationId as string;
+    return this.commandBus.execute(
+      new CreateV2OptimizationCommand(body, ownerUserId, organizationId),
+    );
   }
 
   @Get(':jobId')
   @Roles('org_admin', 'dispatcher', 'viewer', 'driver')
-  async getStatus(@Req() request: Request, @Param('jobId', new ParseUUIDPipe()) jobId: string) {
+  async getStatus(
+    @Req() request: Request,
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
+  ) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
     const rows = await this.prisma.$queryRaw<
@@ -69,18 +79,24 @@ export class OptimizationV2Controller {
     const job = rows[0];
 
     if (!job) {
-      throw new NotFoundException('Optimization job not found for current user');
+      throw new NotFoundException(
+        'Optimization job not found for current user',
+      );
     }
 
     return {
       ...job,
-      error: job.error ?? (job.errorMessage ? { message: job.errorMessage } : null),
+      error:
+        job.error ?? (job.errorMessage ? { message: job.errorMessage } : null),
     };
   }
 
   @Get(':jobId/solution')
   @Roles('org_admin', 'dispatcher', 'viewer', 'driver')
-  async getSolution(@Req() request: Request, @Param('jobId', new ParseUUIDPipe()) jobId: string) {
+  async getSolution(
+    @Req() request: Request,
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
+  ) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
     const job = await this.prisma.optimizationJob.findFirst({
@@ -93,7 +109,9 @@ export class OptimizationV2Controller {
     });
 
     if (!job) {
-      throw new NotFoundException('Optimization job not found for current user');
+      throw new NotFoundException(
+        'Optimization job not found for current user',
+      );
     }
 
     if (!job.result) {

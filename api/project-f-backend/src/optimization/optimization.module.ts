@@ -8,6 +8,7 @@ import { OptimizationV2Controller } from './optimization-v2.controller';
 import { PlanController } from './plan.controller';
 import { DispatchController } from './dispatch.controller';
 import { DriverController } from './driver.controller';
+import { RoutePlansController } from './route-plans.controller';
 import { CreateOptimizationJobHandler } from './handlers/create-optimization-job.handler';
 import { ListOptimizationJobsHandler } from './handlers/list-optimization-jobs.handler';
 import { GetOptimizationJobHandler } from './handlers/get-optimization-job.handler';
@@ -17,6 +18,7 @@ import { OptimizationSqsHandler } from './optimization.sqs';
 import { V2PayloadService } from './services/v2-payload.service';
 import { DispatchService } from './services/dispatch.service';
 import { DriverExecutionService } from './services/driver-execution.service';
+import { RoutePlansService } from './services/route-plans.service';
 
 @Module({
   imports: [
@@ -67,6 +69,7 @@ import { DriverExecutionService } from './services/driver-execution.service';
     PlanController,
     DispatchController,
     DriverController,
+    RoutePlansController,
   ],
   providers: [
     CreateOptimizationJobHandler,
@@ -78,6 +81,7 @@ import { DriverExecutionService } from './services/driver-execution.service';
     V2PayloadService,
     DispatchService,
     DriverExecutionService,
+    RoutePlansService,
   ],
 })
 export class OptimizationModule {}

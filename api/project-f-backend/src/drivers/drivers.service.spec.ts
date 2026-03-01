@@ -3,11 +3,16 @@ import { DriversService } from './drivers.service';
 
 describe('DriversService', () => {
   it('creates driver', async () => {
-    const prisma = {
+    const tx = {
+      user: {
+        upsert: jest.fn(),
+      },
+      $executeRaw: jest.fn(),
       $queryRaw: jest.fn().mockResolvedValue([
         {
           id: 'driver-1',
           organizationId: 'org-1',
+          userId: null,
           name: 'Driver 1',
           email: null,
           phone: null,
@@ -21,6 +26,11 @@ describe('DriversService', () => {
           deletedAt: null,
         },
       ]),
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
     } as any;
 
     const service = new DriversService(prisma);
@@ -33,7 +43,9 @@ describe('DriversService', () => {
     const prisma = { $queryRaw: jest.fn() } as any;
     const service = new DriversService(prisma);
 
-    await expect(service.getById('org-1', 'bad-id')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.getById('org-1', 'bad-id')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('throws not found when update result is empty', async () => {

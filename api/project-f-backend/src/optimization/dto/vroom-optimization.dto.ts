@@ -1,5 +1,5 @@
 export interface VroomVehicleDto {
-  id: number;
+  id: number | string;
   start: [number, number];
   end?: [number, number];
   time_window?: [number, number];
@@ -13,6 +13,8 @@ export interface VroomJobDto {
 }
 
 export interface VroomOptimizationRequestDto {
-  vehicles: VroomVehicleDto[];
+  vehicles?: VroomVehicleDto[];
   jobs: VroomJobDto[];
+  planDate?: string;
+  selectedDriverIds?: string[];
 }

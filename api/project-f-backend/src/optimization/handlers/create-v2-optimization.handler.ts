@@ -24,19 +24,27 @@ export class CreateV2OptimizationHandler implements ICommandHandler<CreateV2Opti
   }
 
   async execute(command: CreateV2OptimizationCommand) {
-    const { payload, ownerUserId } = command;
+    const { payload, ownerUserId, organizationId } = command;
     if (!payload) {
       throw new BadRequestException('Request body is required');
     }
 
-    const normalized = this.payloadService.vroomToLegacyPayload(payload);
+    const normalized = await this.payloadService.vroomToLegacyPayload(
+      payload,
+      organizationId,
+      this.prisma,
+    );
+    const jobPayload = {
+      ...normalized,
+      organizationId,
+    };
 
     const job = await this.prisma.optimizationJob.create({
       data: {
         ownerUserId,
         version: 'v2',
         status: 'enqueued',
-        data: normalized as unknown as Prisma.InputJsonValue,
+        data: jobPayload as unknown as Prisma.InputJsonValue,
         dataVersion: 'v2-vroom',
       },
     });

@@ -25,6 +25,11 @@ import { RolesGuard } from './guards/roles.guard';
       useClass: MockEmailService,
     },
   ],
-  exports: [AuthGuard, OrganizationAccessGuard, RolesGuard, OrganizationMembershipService],
+  exports: [
+    AuthGuard,
+    OrganizationAccessGuard,
+    RolesGuard,
+    OrganizationMembershipService,
+  ],
 })
 export class AuthModule {}

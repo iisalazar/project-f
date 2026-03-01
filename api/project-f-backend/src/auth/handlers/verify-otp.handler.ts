@@ -45,7 +45,9 @@ export class VerifyOtpHandler implements ICommandHandler<VerifyOtpCommand> {
     }
 
     const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
 
     await this.prisma.userSessionToken.create({
       data: {

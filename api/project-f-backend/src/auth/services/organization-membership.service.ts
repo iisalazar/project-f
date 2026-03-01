@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthContext, OrganizationMembership } from '../auth.types';
@@ -23,10 +27,15 @@ export class OrganizationMembershipService {
     `);
   }
 
-  async resolveAuthContext(userId: string, sessionToken: string): Promise<AuthContext> {
+  async resolveAuthContext(
+    userId: string,
+    sessionToken: string,
+  ): Promise<AuthContext> {
     const [memberships, sessionRows] = await Promise.all([
       this.listMemberships(userId),
-      this.prisma.$queryRaw<Array<{ activeOrganizationId: string | null }>>(Prisma.sql`
+      this.prisma.$queryRaw<
+        Array<{ activeOrganizationId: string | null }>
+      >(Prisma.sql`
         SELECT "activeOrganizationId"
         FROM "UserSessionToken"
         WHERE "token" = ${sessionToken}
@@ -34,10 +43,16 @@ export class OrganizationMembershipService {
       `),
     ]);
 
-    const sessionActiveOrganizationId = sessionRows[0]?.activeOrganizationId ?? null;
-    const fallbackOrganizationId = memberships.length === 1 ? memberships[0].organizationId : null;
-    const activeOrganizationId = sessionActiveOrganizationId ?? fallbackOrganizationId;
-    const activeMembership = memberships.find((item) => item.organizationId === activeOrganizationId) ?? null;
+    const sessionActiveOrganizationId =
+      sessionRows[0]?.activeOrganizationId ?? null;
+    const fallbackOrganizationId =
+      memberships.length === 1 ? memberships[0].organizationId : null;
+    const activeOrganizationId =
+      sessionActiveOrganizationId ?? fallbackOrganizationId;
+    const activeMembership =
+      memberships.find(
+        (item) => item.organizationId === activeOrganizationId,
+      ) ?? null;
 
     return {
       activeOrganizationId,
@@ -59,7 +74,9 @@ export class OrganizationMembershipService {
     const organizationName = payload.name.trim();
     const timezone = payload.timezone?.trim() || 'UTC';
 
-    const orgRows = await this.prisma.$queryRaw<Array<{ id: string; name: string; timezone: string }>>(Prisma.sql`
+    const orgRows = await this.prisma.$queryRaw<
+      Array<{ id: string; name: string; timezone: string }>
+    >(Prisma.sql`
       INSERT INTO "Organization" ("id", "name", "timezone", "createdAt", "updatedAt")
       VALUES (gen_random_uuid(), ${organizationName}, ${timezone}, NOW(), NOW())
       RETURNING "id", "name", "timezone"
@@ -82,8 +99,14 @@ export class OrganizationMembershipService {
     };
   }
 
-  async setActiveOrganization(userId: string, sessionToken: string, organizationId: string) {
-    const membershipRows = await this.prisma.$queryRaw<Array<{ role: string; status: string }>>(Prisma.sql`
+  async setActiveOrganization(
+    userId: string,
+    sessionToken: string,
+    organizationId: string,
+  ) {
+    const membershipRows = await this.prisma.$queryRaw<
+      Array<{ role: string; status: string }>
+    >(Prisma.sql`
       SELECT "role", "status"
       FROM "OrganizationUserRole"
       WHERE "organizationId" = ${organizationId}::uuid
@@ -93,7 +116,9 @@ export class OrganizationMembershipService {
 
     const membership = membershipRows[0];
     if (!membership || membership.status !== 'active') {
-      throw new ForbiddenException('User is not an active member of this organization');
+      throw new ForbiddenException(
+        'User is not an active member of this organization',
+      );
     }
 
     await this.prisma.$executeRaw(Prisma.sql`

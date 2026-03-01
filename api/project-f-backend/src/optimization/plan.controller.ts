@@ -15,9 +15,16 @@ export class PlanController {
 
   @Post('optimize')
   @Roles('org_admin', 'dispatcher')
-  async optimize(@Body() body: VroomOptimizationRequestDto, @Req() request: Request) {
+  async optimize(
+    @Body() body: VroomOptimizationRequestDto,
+    @Req() request: Request,
+  ) {
     // @ts-ignore
     const ownerUserId = request.user?.id as string;
-    return this.commandBus.execute(new CreateV2OptimizationCommand(body, ownerUserId));
+    // @ts-ignore
+    const organizationId = request.authContext.activeOrganizationId as string;
+    return this.commandBus.execute(
+      new CreateV2OptimizationCommand(body, ownerUserId, organizationId),
+    );
   }
 }

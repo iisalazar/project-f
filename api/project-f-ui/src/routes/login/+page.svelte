@@ -38,6 +38,10 @@ import { getMe } from '$lib/services/auth-api';
         await goto('/onboarding/organization');
         return;
       }
+      if (me.auth?.activeRole === 'driver') {
+        await goto('/driver/workboard');
+        return;
+      }
       await goto('/plan');
     } catch (err) {
       error = (err as Error).message;

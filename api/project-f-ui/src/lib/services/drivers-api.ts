@@ -3,6 +3,7 @@ import { apiFetch } from '$lib/api';
 export interface DriverRecord {
   id: string;
   organizationId: string;
+  userId: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -26,6 +27,7 @@ export interface DriverCreateUpdatePayload {
   name?: string;
   email?: string;
   phone?: string;
+  createLoginUser?: boolean;
   state?: DriverRecord['state'];
   shiftStartSeconds?: number;
   shiftEndSeconds?: number;

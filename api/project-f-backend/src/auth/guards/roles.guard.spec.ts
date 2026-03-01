@@ -29,7 +29,9 @@ describe('RolesGuard', () => {
       guard.canActivate({
         getHandler: () => ({}),
         getClass: () => ({}),
-        switchToHttp: () => ({ getRequest: () => ({ authContext: { activeRole: 'viewer' } }) }),
+        switchToHttp: () => ({
+          getRequest: () => ({ authContext: { activeRole: 'viewer' } }),
+        }),
       } as any),
     ).toThrow(ForbiddenException);
   });

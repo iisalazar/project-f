@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -27,7 +35,11 @@ export class AuthController {
       type: 'object',
       properties: {
         email: { type: 'string', example: 'user@example.com' },
-        purpose: { type: 'string', enum: ['login', 'signup'], example: 'login' },
+        purpose: {
+          type: 'string',
+          enum: ['login', 'signup'],
+          example: 'login',
+        },
       },
       required: ['email', 'purpose'],
       examples: {
@@ -56,22 +68,37 @@ export class AuthController {
       properties: {
         email: { type: 'string', example: 'user@example.com' },
         code: { type: 'string', example: '123456' },
-        purpose: { type: 'string', enum: ['login', 'signup'], example: 'login' },
+        purpose: {
+          type: 'string',
+          enum: ['login', 'signup'],
+          example: 'login',
+        },
       },
       required: ['email', 'code', 'purpose'],
       examples: {
         login: {
           summary: 'Login verify',
-          value: { email: 'user@example.com', code: '123456', purpose: 'login' },
+          value: {
+            email: 'user@example.com',
+            code: '123456',
+            purpose: 'login',
+          },
         },
         signup: {
           summary: 'Signup verify',
-          value: { email: 'newuser@example.com', code: '123456', purpose: 'signup' },
+          value: {
+            email: 'newuser@example.com',
+            code: '123456',
+            purpose: 'signup',
+          },
         },
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Session token returned and cookie set' })
+  @ApiResponse({
+    status: 200,
+    description: 'Session token returned and cookie set',
+  })
   @Post('otp/verify')
   async verifyOtp(
     @Body() body: VerifyOtpRequestDto,
@@ -116,21 +143,35 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Post('onboarding/create-organization')
-  async createOrganization(@Req() request: Request, @Body() body: CreateOrganizationRequestDto) {
+  async createOrganization(
+    @Req() request: Request,
+    @Body() body: CreateOrganizationRequestDto,
+  ) {
     // @ts-ignore
     const userId = request.user?.id as string;
     // @ts-ignore
     const sessionToken = request.sessionToken as string;
-    return this.organizationMembershipService.createOrganizationOnboarding(userId, sessionToken, body);
+    return this.organizationMembershipService.createOrganizationOnboarding(
+      userId,
+      sessionToken,
+      body,
+    );
   }
 
   @UseGuards(AuthGuard)
   @Post('active-organization')
-  async setActiveOrganization(@Req() request: Request, @Body() body: SetActiveOrganizationRequestDto) {
+  async setActiveOrganization(
+    @Req() request: Request,
+    @Body() body: SetActiveOrganizationRequestDto,
+  ) {
     // @ts-ignore
     const userId = request.user?.id as string;
     // @ts-ignore
     const sessionToken = request.sessionToken as string;
-    return this.organizationMembershipService.setActiveOrganization(userId, sessionToken, body.organizationId);
+    return this.organizationMembershipService.setActiveOrganization(
+      userId,
+      sessionToken,
+      body.organizationId,
+    );
   }
 }

@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  assignRoutePlanDriver,
   createPlan,
   dispatchRoute,
   dispatchStop,
   getDriverStops,
+  getDriverTripStops,
+  getDriverTrips,
+  getDriverTripsRange,
   getOptimizationSolution,
   getOptimizationStatus,
+  getRoutePlan,
+  getRoutePlanStops,
   getTodayTrip,
+  listRoutePlans,
   updateDriverStopStatus,
 } from './operations-api';
 
@@ -21,11 +28,12 @@ describe('operations-api', () => {
     apiFetchMock.mockReset();
   });
 
-  it('createPlan posts to /plan/optimize', async () => {
+  it('createPlan posts to /plan/optimize with v2 contract', async () => {
     apiFetchMock.mockResolvedValue({ jobId: 'job-1' });
 
     const payload = {
-      vehicles: [{ id: 1, start: [121, 14] as [number, number] }],
+      planDate: '2026-03-01',
+      selectedDriverIds: ['driver-1'],
       jobs: [{ id: 10, location: [121.1, 14.1] as [number, number] }],
     };
     const result = await createPlan(payload);
@@ -64,18 +72,50 @@ describe('operations-api', () => {
     });
   });
 
+  it('handles route plan endpoints', async () => {
+    apiFetchMock.mockResolvedValueOnce([{ id: 'rp-1' }]);
+    apiFetchMock.mockResolvedValueOnce({ id: 'rp-1' });
+    apiFetchMock.mockResolvedValueOnce([{ routeStopId: 'rs-1' }]);
+    apiFetchMock.mockResolvedValueOnce({ status: 'assigned' });
+
+    await listRoutePlans({ date: '2026-03-01', status: 'optimized', driverId: 'driver-1' });
+    await getRoutePlan('rp-1');
+    await getRoutePlanStops('rp-1');
+    await assignRoutePlanDriver('rp-1', { driverId: 'driver-1' });
+
+    expect(apiFetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/route-plans?date=2026-03-01&status=optimized&driverId=driver-1',
+    );
+    expect(apiFetchMock).toHaveBeenNthCalledWith(2, '/route-plans/rp-1');
+    expect(apiFetchMock).toHaveBeenNthCalledWith(3, '/route-plans/rp-1/stops');
+    expect(apiFetchMock).toHaveBeenNthCalledWith(4, '/route-plans/rp-1/assign-driver', {
+      method: 'POST',
+      body: JSON.stringify({ driverId: 'driver-1' }),
+    });
+  });
+
   it('handles driver read/write endpoints', async () => {
     apiFetchMock.mockResolvedValueOnce({ tripId: 'trip-1' });
     apiFetchMock.mockResolvedValueOnce([{ tripStopId: 'ts-1' }]);
+    apiFetchMock.mockResolvedValueOnce([{ tripId: 'trip-2' }]);
+    apiFetchMock.mockResolvedValueOnce([{ tripId: 'trip-3' }]);
+    apiFetchMock.mockResolvedValueOnce([{ tripStopId: 'ts-2' }]);
     apiFetchMock.mockResolvedValueOnce({ tripStopId: 'ts-1', status: 'completed' });
 
     await getTodayTrip();
-    await getDriverStops();
+    await getDriverStops('2026-03-01');
+    await getDriverTrips('2026-03-01');
+    await getDriverTripsRange('2026-03-01', '2026-03-07');
+    await getDriverTripStops('trip-3');
     await updateDriverStopStatus('ts-1', { status: 'completed', note: 'done' });
 
     expect(apiFetchMock).toHaveBeenNthCalledWith(1, '/driver/trip/today');
-    expect(apiFetchMock).toHaveBeenNthCalledWith(2, '/driver/stops');
-    expect(apiFetchMock).toHaveBeenNthCalledWith(3, '/driver/stops/ts-1/status', {
+    expect(apiFetchMock).toHaveBeenNthCalledWith(2, '/driver/stops?date=2026-03-01');
+    expect(apiFetchMock).toHaveBeenNthCalledWith(3, '/driver/trips?date=2026-03-01');
+    expect(apiFetchMock).toHaveBeenNthCalledWith(4, '/driver/trips/range?from=2026-03-01&to=2026-03-07');
+    expect(apiFetchMock).toHaveBeenNthCalledWith(5, '/driver/trips/trip-3/stops');
+    expect(apiFetchMock).toHaveBeenNthCalledWith(6, '/driver/stops/ts-1/status', {
       method: 'POST',
       body: JSON.stringify({ status: 'completed', note: 'done' }),
     });

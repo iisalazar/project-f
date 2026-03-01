@@ -17,7 +17,13 @@ export class GetOptimizationJobHandler implements ICommandHandler<GetOptimizatio
       include: {
         logs: {
           orderBy: { createdAt: 'asc' },
-          select: { id: true, type: true, message: true, createdAt: true, data: true },
+          select: {
+            id: true,
+            type: true,
+            message: true,
+            createdAt: true,
+            data: true,
+          },
         },
       },
     });

@@ -4,12 +4,18 @@ import { OrganizationMembershipService } from './organization-membership.service
 describe('OrganizationMembershipService', () => {
   it('resolveAuthContext marks onboarding required when no memberships', async () => {
     const prisma = {
-      $queryRaw: jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([{ activeOrganizationId: null }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ activeOrganizationId: null }]),
       $executeRaw: jest.fn(),
     } as any;
 
     const service = new OrganizationMembershipService(prisma);
-    const context = await service.resolveAuthContext('11111111-1111-1111-1111-111111111111', 'token');
+    const context = await service.resolveAuthContext(
+      '11111111-1111-1111-1111-111111111111',
+      'token',
+    );
 
     expect(context.needsOnboarding).toBe(true);
     expect(context.activeOrganizationId).toBeNull();

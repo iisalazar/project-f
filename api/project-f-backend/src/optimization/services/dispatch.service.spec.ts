@@ -4,7 +4,9 @@ describe('DispatchService', () => {
   it('dispatchRoute inserts dispatch and execution event', async () => {
     const prisma = {
       $executeRaw: jest.fn().mockResolvedValue(1),
-      $queryRaw: jest.fn().mockResolvedValue([{ id: '33333333-3333-3333-3333-333333333333' }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: '33333333-3333-3333-3333-333333333333' }]),
     } as any;
 
     const service = new DispatchService(prisma);
@@ -27,7 +29,9 @@ describe('DispatchService', () => {
   it('dispatchStop inserts dispatch and execution event', async () => {
     const prisma = {
       $executeRaw: jest.fn().mockResolvedValue(1),
-      $queryRaw: jest.fn().mockResolvedValue([{ id: '33333333-3333-3333-3333-333333333333' }]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: '33333333-3333-3333-3333-333333333333' }]),
     } as any;
 
     const service = new DispatchService(prisma);

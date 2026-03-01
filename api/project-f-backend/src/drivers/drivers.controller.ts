@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -32,11 +44,16 @@ export class DriversController {
   ) {
     // @ts-ignore
     const organizationId = request.authContext.activeOrganizationId as string;
+    // @ts-ignore
+    const activeRole = request.authContext.activeRole as string | null;
+    // @ts-ignore
+    const userId = request.user?.id as string;
     return this.driversService.list(organizationId, {
       search,
       state,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
+      linkedUserId: activeRole === 'driver' ? userId : undefined,
     });
   }
 
@@ -45,12 +62,24 @@ export class DriversController {
   async get(@Req() request: Request, @Param('id') id: string) {
     // @ts-ignore
     const organizationId = request.authContext.activeOrganizationId as string;
-    return this.driversService.getById(organizationId, id);
+    // @ts-ignore
+    const activeRole = request.authContext.activeRole as string | null;
+    // @ts-ignore
+    const userId = request.user?.id as string;
+    const driver = await this.driversService.getById(organizationId, id);
+    if (activeRole === 'driver' && driver.userId !== userId) {
+      throw new ForbiddenException('Driver can only access own profile');
+    }
+    return driver;
   }
 
   @Patch(':id')
   @Roles('org_admin', 'dispatcher')
-  async update(@Req() request: Request, @Param('id') id: string, @Body() body: UpdateDriverDto) {
+  async update(
+    @Req() request: Request,
+    @Param('id') id: string,
+    @Body() body: UpdateDriverDto,
+  ) {
     // @ts-ignore
     const organizationId = request.authContext.activeOrganizationId as string;
     return this.driversService.update(organizationId, id, body);

@@ -6,6 +6,7 @@
   let name = '';
   let email = '';
   let phone = '';
+  let createLoginUser = true;
   let state: 'idle' | 'enroute' | 'arrived' | 'completed' | 'failed' = 'idle';
   let startLocation: [number, number] | null = null;
   let endLocation: [number, number] | null = null;
@@ -16,7 +17,13 @@
     status = 'Creating driver...';
     error = '';
     try {
-      const payload: Record<string, unknown> = { name, email: email || undefined, phone: phone || undefined, state };
+      const payload: Record<string, unknown> = {
+        name,
+        email: email || undefined,
+        phone: phone || undefined,
+        state,
+        createLoginUser,
+      };
       if (startLocation) payload.startLocation = startLocation;
       if (endLocation) payload.endLocation = endLocation;
       const result = await createDriver(payload);
@@ -46,14 +53,27 @@
       </select>
     </div>
   </div>
+  <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+    <input id="create-login-user" type="checkbox" bind:checked={createLoginUser} />
+    <label for="create-login-user" style="margin:0;">Create or link login user from email</label>
+  </div>
   <div class="row two" style="margin-top:16px;">
     <MapPointPicker bind:value={startLocation} label="Start Location" height={240} />
     <MapPointPicker bind:value={endLocation} label="End Location" height={240} />
   </div>
   <div style="display:flex;gap:12px;margin-top:16px;">
-    <button class="button" on:click={submit} disabled={!name.trim()}>Create</button>
+    <button
+      class="button"
+      on:click={submit}
+      disabled={!name.trim() || (createLoginUser && !email.trim())}
+    >
+      Create
+    </button>
     <button class="button secondary" on:click={() => goto('/drivers')}>Cancel</button>
   </div>
+  {#if createLoginUser && !email.trim()}
+    <p class="muted" style="margin-top:12px;">Email is required when login creation is enabled.</p>
+  {/if}
   {#if status}<p class="muted" style="margin-top:16px;">{status}</p>{/if}
   {#if error}<p style="margin-top:16px;color:var(--danger);">{error}</p>{/if}
 </div>

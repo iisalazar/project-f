@@ -1,12 +1,26 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { PrismaService } from '../../prisma/prisma.service';
 import type { CreateOptimizationJobRequestDto } from '../dto/create-optimization-job.dto';
 import type { VroomOptimizationRequestDto } from '../dto/vroom-optimization.dto';
 
 const DEFAULT_WINDOW: [number, number] = [8 * 3600, 17 * 3600];
+type DriverSource = 'selected-driver-ids' | 'vehicles';
+
+interface EnrichedOptimizationJobRequestDto extends CreateOptimizationJobRequestDto {
+  planDate?: string;
+  selectedDriverIds?: string[];
+  metadata?: {
+    driverSource: DriverSource;
+    vehicleToDriverMap?: Record<string, string>;
+  };
+}
 
 @Injectable()
 export class V2PayloadService {
-  normalizeLegacyPayload(payload: CreateOptimizationJobRequestDto): CreateOptimizationJobRequestDto {
+  normalizeLegacyPayload(
+    payload: CreateOptimizationJobRequestDto,
+  ): CreateOptimizationJobRequestDto {
     const { drivers, stops } = payload;
 
     if (!Array.isArray(drivers) || drivers.length === 0) {
@@ -42,6 +56,7 @@ export class V2PayloadService {
     }
 
     return {
+      ...(payload as any),
       drivers: drivers.map((driver) => ({
         ...driver,
         availabilityWindow: driver.availabilityWindow ?? DEFAULT_WINDOW,
@@ -54,28 +69,72 @@ export class V2PayloadService {
     };
   }
 
-  vroomToLegacyPayload(payload: VroomOptimizationRequestDto): CreateOptimizationJobRequestDto {
-    if (!payload || !Array.isArray(payload.vehicles) || !Array.isArray(payload.jobs)) {
-      throw new BadRequestException('vehicles and jobs are required');
+  async vroomToLegacyPayload(
+    payload: VroomOptimizationRequestDto,
+    organizationId: string,
+    prisma: PrismaService,
+  ): Promise<EnrichedOptimizationJobRequestDto> {
+    if (!payload || !Array.isArray(payload.jobs) || payload.jobs.length === 0) {
+      throw new BadRequestException('jobs are required');
     }
 
-    const drivers = payload.vehicles.map((vehicle) => {
-      if (!vehicle?.id) {
-        throw new BadRequestException('vehicle.id is required');
-      }
-      this.assertLocation(vehicle.start, 'vehicle.start');
-      if (vehicle.end) {
-        this.assertLocation(vehicle.end, 'vehicle.end');
-      }
-      return {
-        id: vehicle.id,
-        name: `Driver ${vehicle.id}`,
-        startLocation: vehicle.start,
-        endLocation: vehicle.end ?? vehicle.start,
-        availabilityWindow: vehicle.time_window ?? DEFAULT_WINDOW,
-        maxTasks: vehicle.max_tasks,
+    const planDate = this.normalizePlanDate(payload.planDate);
+    const selectedDriverIds = Array.isArray(payload.selectedDriverIds)
+      ? [
+          ...new Set(
+            payload.selectedDriverIds.filter(
+              (value) => typeof value === 'string',
+            ),
+          ),
+        ]
+      : [];
+
+    const hasVehicles =
+      Array.isArray(payload.vehicles) && payload.vehicles.length > 0;
+    let metadata: EnrichedOptimizationJobRequestDto['metadata'];
+    let drivers: CreateOptimizationJobRequestDto['drivers'];
+
+    if (selectedDriverIds.length > 0) {
+      drivers = await this.driversFromSelectedIds(
+        selectedDriverIds,
+        organizationId,
+        prisma,
+      );
+      metadata = {
+        driverSource: 'selected-driver-ids',
+        vehicleToDriverMap: Object.fromEntries(
+          drivers.map((driver) => [
+            String(driver.id),
+            selectedDriverIds[driver.id - 1],
+          ]),
+        ),
       };
-    });
+    } else if (hasVehicles) {
+      drivers = payload.vehicles!.map((vehicle) => {
+        if (
+          vehicle?.id === undefined ||
+          vehicle?.id === null ||
+          Number.isNaN(Number(vehicle.id))
+        ) {
+          throw new BadRequestException('vehicle.id is required');
+        }
+        this.assertLocation(vehicle.start, 'vehicle.start');
+        if (vehicle.end) {
+          this.assertLocation(vehicle.end, 'vehicle.end');
+        }
+        return {
+          id: Number(vehicle.id),
+          name: `Driver ${vehicle.id}`,
+          startLocation: vehicle.start,
+          endLocation: vehicle.end ?? vehicle.start,
+          availabilityWindow: vehicle.time_window ?? DEFAULT_WINDOW,
+          maxTasks: vehicle.max_tasks,
+        };
+      });
+      metadata = { driverSource: 'vehicles' };
+    } else {
+      throw new BadRequestException('Provide vehicles or selectedDriverIds');
+    }
 
     const stops = payload.jobs.map((job) => {
       if (!job?.id) {
@@ -89,7 +148,115 @@ export class V2PayloadService {
       };
     });
 
-    return this.normalizeLegacyPayload({ drivers, stops });
+    return this.normalizeLegacyPayload({
+      drivers,
+      stops,
+      planDate,
+      selectedDriverIds:
+        selectedDriverIds.length > 0 ? selectedDriverIds : undefined,
+      metadata,
+    } as EnrichedOptimizationJobRequestDto) as EnrichedOptimizationJobRequestDto;
+  }
+
+  private async driversFromSelectedIds(
+    selectedDriverIds: string[],
+    organizationId: string,
+    prisma: PrismaService,
+  ): Promise<CreateOptimizationJobRequestDto['drivers']> {
+    for (const id of selectedDriverIds) {
+      if (!this.isUuid(id)) {
+        throw new BadRequestException(
+          'selectedDriverIds must contain valid UUIDs',
+        );
+      }
+    }
+
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        name: string;
+        startLocation: Prisma.JsonValue | null;
+        endLocation: Prisma.JsonValue | null;
+        shiftStartSeconds: number | null;
+        shiftEndSeconds: number | null;
+      }>
+    >(Prisma.sql`
+      SELECT
+        d."id",
+        d."name",
+        d."startLocation",
+        d."endLocation",
+        d."shiftStartSeconds",
+        d."shiftEndSeconds"
+      FROM "Driver" d
+      WHERE d."organizationId" = ${organizationId}::uuid
+      AND d."deletedAt" IS NULL
+      AND d."id" IN (${Prisma.join(selectedDriverIds.map((id) => Prisma.sql`${id}::uuid`))})
+    `);
+
+    if (rows.length !== selectedDriverIds.length) {
+      throw new BadRequestException(
+        'One or more selectedDriverIds are not in the active organization',
+      );
+    }
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return selectedDriverIds.map((driverId, index) => {
+      const row = byId.get(driverId);
+      if (!row) {
+        throw new BadRequestException(
+          'One or more selectedDriverIds are not in the active organization',
+        );
+      }
+
+      const startLocation = this.asLocation(
+        row.startLocation,
+        `driver(${driverId}).startLocation`,
+      );
+      const endLocation = row.endLocation
+        ? this.asLocation(row.endLocation, `driver(${driverId}).endLocation`)
+        : startLocation;
+
+      return {
+        id: index + 1,
+        name: row.name,
+        startLocation,
+        endLocation,
+        availabilityWindow:
+          Number.isFinite(row.shiftStartSeconds) &&
+          Number.isFinite(row.shiftEndSeconds)
+            ? [row.shiftStartSeconds!, row.shiftEndSeconds!]
+            : DEFAULT_WINDOW,
+        maxTasks: 4,
+      };
+    });
+  }
+
+  private normalizePlanDate(value?: string): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new BadRequestException('planDate must be in YYYY-MM-DD format');
+    }
+    return value;
+  }
+
+  private asLocation(
+    value: Prisma.JsonValue | null,
+    label: string,
+  ): [number, number] {
+    if (!Array.isArray(value) || value.length !== 2) {
+      throw new BadRequestException(`${label} must be [lon, lat]`);
+    }
+    const [lon, lat] = value as number[];
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+      throw new BadRequestException(`${label} must be numbers`);
+    }
+    if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+      throw new BadRequestException(`${label} out of range`);
+    }
+    return [lon, lat];
   }
 
   private assertLocation(value: unknown, label: string) {
@@ -103,5 +270,11 @@ export class V2PayloadService {
     if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
       throw new BadRequestException(`${label} out of range`);
     }
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
   }
 }
