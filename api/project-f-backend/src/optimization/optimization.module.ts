@@ -3,11 +3,19 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { SqsModule } from '@ssut/nestjs-sqs';
 import { SQSClient } from '@aws-sdk/client-sqs';
 import { OptimizationController } from './optimization.controller';
+import { OptimizationV2Controller } from './optimization-v2.controller';
+import { PlanController } from './plan.controller';
+import { DispatchController } from './dispatch.controller';
+import { DriverController } from './driver.controller';
 import { CreateOptimizationJobHandler } from './handlers/create-optimization-job.handler';
 import { ListOptimizationJobsHandler } from './handlers/list-optimization-jobs.handler';
 import { GetOptimizationJobHandler } from './handlers/get-optimization-job.handler';
+import { CreateV2OptimizationHandler } from './handlers/create-v2-optimization.handler';
 import { OptimizationProcessorService } from './services/optimization-processor.service';
 import { OptimizationSqsHandler } from './optimization.sqs';
+import { V2PayloadService } from './services/v2-payload.service';
+import { DispatchService } from './services/dispatch.service';
+import { DriverExecutionService } from './services/driver-execution.service';
 
 @Module({
   imports: [
@@ -51,13 +59,23 @@ import { OptimizationSqsHandler } from './optimization.sqs';
       },
     }),
   ],
-  controllers: [OptimizationController],
+  controllers: [
+    OptimizationController,
+    OptimizationV2Controller,
+    PlanController,
+    DispatchController,
+    DriverController,
+  ],
   providers: [
     CreateOptimizationJobHandler,
+    CreateV2OptimizationHandler,
     ListOptimizationJobsHandler,
     GetOptimizationJobHandler,
     OptimizationProcessorService,
     OptimizationSqsHandler,
+    V2PayloadService,
+    DispatchService,
+    DriverExecutionService,
   ],
 })
 export class OptimizationModule {}

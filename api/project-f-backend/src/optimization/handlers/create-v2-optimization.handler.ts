@@ -3,12 +3,12 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateOptimizationJobCommand } from '../commands/create-optimization-job.command';
+import { CreateV2OptimizationCommand } from '../commands/create-v2-optimization.command';
 import { V2PayloadService } from '../services/v2-payload.service';
 
-@CommandHandler(CreateOptimizationJobCommand)
+@CommandHandler(CreateV2OptimizationCommand)
 @Injectable()
-export class CreateOptimizationJobHandler implements ICommandHandler<CreateOptimizationJobCommand> {
+export class CreateV2OptimizationHandler implements ICommandHandler<CreateV2OptimizationCommand> {
   private readonly sqsClient: SQSClient;
   private readonly queueUrl: string;
 
@@ -23,21 +23,21 @@ export class CreateOptimizationJobHandler implements ICommandHandler<CreateOptim
     });
   }
 
-  async execute(command: CreateOptimizationJobCommand) {
+  async execute(command: CreateV2OptimizationCommand) {
     const { payload, ownerUserId } = command;
     if (!payload) {
       throw new BadRequestException('Request body is required');
     }
 
-    const normalized = this.payloadService.normalizeLegacyPayload(payload);
+    const normalized = this.payloadService.vroomToLegacyPayload(payload);
 
     const job = await this.prisma.optimizationJob.create({
       data: {
         ownerUserId,
-        version: 'v1',
+        version: 'v2',
         status: 'enqueued',
         data: normalized as unknown as Prisma.InputJsonValue,
-        dataVersion: 'v1',
+        dataVersion: 'v2-vroom',
       },
     });
 
@@ -45,7 +45,7 @@ export class CreateOptimizationJobHandler implements ICommandHandler<CreateOptim
       data: {
         optimizationJobId: job.id,
         type: 'info',
-        message: 'Job enqueued',
+        message: 'V2 job enqueued',
       },
     });
 
