@@ -13,7 +13,7 @@
     try {
       await createOrganization({ name, timezone });
       status = 'Organization created. Redirecting...';
-      await goto('/drivers');
+      await goto('/plan');
     } catch (err) {
       status = '';
       error = (err as Error).message;
@@ -23,7 +23,7 @@
   getMe()
     .then((me) => {
       if (me.auth && !me.auth.needsOnboarding) {
-        goto('/plan');
+        goto('/dashboard');
       }
     })
     .catch(() => {

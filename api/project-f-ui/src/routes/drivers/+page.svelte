@@ -9,13 +9,22 @@
   let state = '';
   let status = '';
   let error = '';
+  let page = 1;
+  const pageSize = 20;
+  let hasMore = false;
 
   async function load() {
     status = 'Loading drivers...';
     error = '';
     try {
-      const response = await listDrivers({ search: search || undefined, state: state || undefined });
+      const response = await listDrivers({
+        search: search || undefined,
+        state: state || undefined,
+        page,
+        pageSize,
+      });
       drivers = response.items;
+      hasMore = response.items.length === pageSize;
       status = '';
     } catch (err) {
       status = '';
@@ -24,16 +33,21 @@
   }
 
   async function removeDriver(id: string) {
-    if (!confirm('Delete this driver?')) {
-      return;
-    }
-
+    if (!confirm('Delete this driver?')) return;
     try {
       await deleteDriver(id);
       await load();
     } catch (err) {
       error = (err as Error).message;
     }
+  }
+
+  function prevPage() {
+    if (page > 1) { page--; load(); }
+  }
+
+  function nextPage() {
+    if (hasMore) { page++; load(); }
   }
 
   onMount(async () => {
@@ -56,7 +70,7 @@
       <h2 style="margin:0;">Drivers</h2>
       <p class="muted" style="margin:4px 0 0;">Manage organization drivers for planning and dispatch.</p>
     </div>
-    <button class="button" on:click={() => goto('/drivers/new')}>Add Driver</button>
+    <button class="button" onclick={() => goto('/drivers/new')}>Add Driver</button>
   </div>
 
   <div class="row two" style="margin-top:16px;">
@@ -76,7 +90,7 @@
       </select>
     </div>
     <div style="align-self:end;">
-      <button class="button secondary" on:click={load}>Apply</button>
+      <button class="button secondary" onclick={() => { page = 1; load(); }}>Apply</button>
     </div>
   </div>
 
@@ -93,24 +107,29 @@
         <th>Name</th>
         <th>Email</th>
         <th>State</th>
-        <th>Shift</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {#each drivers as driver}
-        <tr>
+        <tr style="cursor:pointer;" onclick={() => goto(`/drivers/${driver.id}`)}>
           <td>{driver.name}</td>
           <td>{driver.email ?? '—'}</td>
-          <td>{driver.state}</td>
-          <td>{driver.shiftStartSeconds ?? '—'} - {driver.shiftEndSeconds ?? '—'}</td>
-          <td style="display:flex;gap:8px;">
-            <button class="button secondary" on:click={() => goto(`/drivers/${driver.id}`)}>View</button>
-            <button class="button secondary" on:click={() => goto(`/drivers/${driver.id}/edit`)}>Edit</button>
-            <button class="button secondary" on:click={() => removeDriver(driver.id)}>Delete</button>
+          <td><span class={`status ${driver.state}`}>● {driver.state}</span></td>
+          <td onclick={(e) => e.stopPropagation()} style="display:flex;gap:8px;">
+            <button class="button secondary" onclick={() => goto(`/drivers/${driver.id}/edit`)}>Edit</button>
           </td>
         </tr>
       {/each}
+      {#if drivers.length === 0 && !status}
+        <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:24px;">No drivers found.</td></tr>
+      {/if}
     </tbody>
   </table>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-top:16px;">
+    <button class="button secondary" onclick={prevPage} disabled={page === 1}>← Prev</button>
+    <span class="muted">Page {page}</span>
+    <button class="button secondary" onclick={nextPage} disabled={!hasMore}>Next →</button>
+  </div>
 </div>
