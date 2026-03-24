@@ -29,11 +29,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
     SqsModule.registerAsync({
       useFactory: () => {
         const region = process.env.AWS_REGION ?? 'ap-southeast-1';
-        const endpoint = process.env.SQS_ENDPOINT ?? 'http://localhost:4566';
         const sqs = new SQSClient({
           apiVersion: '2012-11-05',
           region,
-          endpoint,
+          ...(process.env.SQS_ENDPOINT ? { endpoint: process.env.SQS_ENDPOINT } : {}),
           credentials: {
             accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? 'test',
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? 'test',

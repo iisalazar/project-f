@@ -13,6 +13,7 @@ import { StopsModule } from './stops/stops.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     NotificationsModule,
     IntegrationsModule,
     AnalyticsModule,
+    DashboardModule,
     PrototypeModule,
   ],
   controllers: [AppController],

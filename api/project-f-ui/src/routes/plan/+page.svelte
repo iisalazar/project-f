@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import {
     createPlan,
@@ -41,6 +41,23 @@
   let error = '';
   let activeMapRowIndex: number | null = null;
   let mapPoint: [number, number] | null = null;
+
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  function startPolling() {
+    stopPolling();
+    pollInterval = setInterval(async () => {
+      if (!jobId) return;
+      await refreshStatus();
+      if (jobStatus === 'completed' || jobStatus === 'failed') stopPolling();
+    }, 2000);
+  }
+
+  function stopPolling() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
+  onDestroy(stopPolling);
 
   onMount(async () => {
     try {
@@ -114,7 +131,8 @@
 
       jobId = response.jobId;
       jobStatus = 'enqueued';
-      status = `Plan queued (${response.jobId}).`;
+      status = '';
+      startPolling();
     } catch (err) {
       status = '';
       error = (err as Error).message;
@@ -125,19 +143,16 @@
     if (!jobId) return;
 
     error = '';
-    status = 'Checking job status...';
 
     try {
       const response = await getOptimizationStatus(jobId);
       jobStatus = response.status;
-      status = `Job ${response.id}: ${response.status} (attempts: ${response.attempts})`;
 
       if (response.status === 'completed') {
         await findRoutePlan();
       }
     } catch (err) {
       error = (err as Error).message;
-      status = '';
     }
   }
 
@@ -222,7 +237,7 @@
           <button
             class="button secondary"
             style={`text-align:left;${selectedDriverIds.includes(driver.id) ? 'border-color:var(--accent);' : ''}`}
-            on:click={() => toggleDriver(driver.id)}
+            onclick={() => toggleDriver(driver.id)}
           >
             {driver.name} ({driver.state})
           </button>
@@ -238,14 +253,14 @@
         <button
           class="button secondary"
           style={jobsInputMode === 'table' ? 'border-color:var(--accent);' : ''}
-          on:click={() => (jobsInputMode = 'table')}
+          onclick={() => (jobsInputMode = 'table')}
         >
           Table
         </button>
         <button
           class="button secondary"
           style={jobsInputMode === 'json' ? 'border-color:var(--accent);' : ''}
-          on:click={() => (jobsInputMode = 'json')}
+          onclick={() => (jobsInputMode = 'json')}
         >
           JSON
         </button>
@@ -272,7 +287,7 @@
                   class="input"
                   type="number"
                   value={row.id}
-                  on:input={(event) =>
+                  oninput={(event) =>
                     updateJobRow(idx, {
                       id: Number((event.currentTarget as HTMLInputElement).value),
                     })}
@@ -284,7 +299,7 @@
                   type="number"
                   step="0.000001"
                   value={row.lon}
-                  on:input={(event) =>
+                  oninput={(event) =>
                     updateJobRow(idx, {
                       lon: Number((event.currentTarget as HTMLInputElement).value),
                     })}
@@ -296,7 +311,7 @@
                   type="number"
                   step="0.000001"
                   value={row.lat}
-                  on:input={(event) =>
+                  oninput={(event) =>
                     updateJobRow(idx, {
                       lat: Number((event.currentTarget as HTMLInputElement).value),
                     })}
@@ -307,7 +322,7 @@
                   class="input"
                   type="number"
                   value={row.service ?? ''}
-                  on:input={(event) => {
+                  oninput={(event) => {
                     const value = (event.currentTarget as HTMLInputElement).value;
                     updateJobRow(idx, {
                       service: value === '' ? undefined : Number(value),
@@ -316,12 +331,12 @@
                 />
               </td>
               <td>
-                <button class="button secondary" on:click={() => openMapPicker(idx)}>
+                <button class="button secondary" onclick={() => openMapPicker(idx)}>
                   Pick on Map
                 </button>
               </td>
               <td>
-                <button class="button secondary" on:click={() => removeJobRow(idx)}>
+                <button class="button secondary" onclick={() => removeJobRow(idx)}>
                   Remove
                 </button>
               </td>
@@ -330,17 +345,17 @@
         </tbody>
       </table>
       <div style="margin-top:8px;">
-        <button class="button secondary" on:click={addJobRow}>Add Job</button>
+        <button class="button secondary" onclick={addJobRow}>Add Job</button>
       </div>
       {#if activeMapRowIndex !== null}
         <section class="card" style="margin-top:12px;">
           <h3 style="margin:0 0 8px;">Pick Job #{activeMapRowIndex + 1} Location</h3>
           <MapPointPicker bind:value={mapPoint} label="Job Location" height={300} />
           <div style="display:flex;gap:8px;margin-top:12px;">
-            <button class="button" on:click={applyMapPoint} disabled={!mapPoint}>
+            <button class="button" onclick={applyMapPoint} disabled={!mapPoint}>
               Use This Point
             </button>
-            <button class="button secondary" on:click={closeMapPicker}>Cancel</button>
+            <button class="button secondary" onclick={closeMapPicker}>Cancel</button>
           </div>
         </section>
       {/if}
@@ -350,30 +365,33 @@
   </div>
 
   <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;">
-    <button class="button" on:click={submitPlan}>Run Plan</button>
-    <button class="button secondary" on:click={refreshStatus} disabled={!jobId}>Refresh Status</button>
+    <button class="button" onclick={submitPlan}>Run Plan</button>
     <a class="button secondary" href="/route-plans">Open Route Plans</a>
   </div>
 
   {#if jobId}
-    <p class="muted" style="margin-top:16px;">Job ID: <span class="code" style="padding:2px 8px;">{jobId}</span></p>
-  {/if}
-
-  {#if jobStatus}
-    <p class="muted">Current status: {jobStatus}</p>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap;">
+      <span class={jobStatus === 'enqueued' ? 'badge' : 'muted'}>● Queued</span>
+      <span style="color:var(--muted);">→</span>
+      <span class={jobStatus === 'processing' ? 'badge' : 'muted'}>● Processing</span>
+      <span style="color:var(--muted);">→</span>
+      <span class={jobStatus === 'completed' ? 'badge' : 'muted'}>● Done</span>
+      {#if pollInterval}<span class="muted" style="font-size:12px;">(polling…)</span>{/if}
+    </div>
+    <p class="muted" style="margin-top:8px;">Job ID: <span class="code" style="padding:2px 8px;">{jobId}</span></p>
   {/if}
 
   {#if routePlanId}
-    <p class="muted">
+    <p class="muted" style="margin-top:8px;">
       Route plan created for {planDate}:
       <a class="badge" href={`/route-plans/${routePlanId}`}>{routePlanId}</a>
     </p>
   {/if}
 
   {#if status}
-    <p class="muted">{status}</p>
+    <p class="muted" style="margin-top:8px;">{status}</p>
   {/if}
   {#if error}
-    <p style="color:var(--danger);">{error}</p>
+    <p style="color:var(--danger);margin-top:8px;">{error}</p>
   {/if}
 </div>

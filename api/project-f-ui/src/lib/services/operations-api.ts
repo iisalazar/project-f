@@ -99,3 +99,12 @@ export async function updateDriverStopStatus(tripStopId: string, payload: Driver
     body: JSON.stringify(payload),
   });
 }
+
+export async function getDashboardSummary(date: string): Promise<{
+  date: string;
+  routePlans: { total: number; inProgress: number; completed: number };
+  drivers: { active: number };
+  stops: { done: number; total: number };
+}> {
+  return apiFetch(`/dashboard/summary?date=${encodeURIComponent(date)}`);
+}

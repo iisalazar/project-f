@@ -19,8 +19,10 @@
   let routePlans: RoutePlanListItem[] = [];
   let drivers: DriverRecord[] = [];
 
-  let status = '';
-  let error = '';
+  let routeStatus = '';
+  let routeError = '';
+  let stopStatus = '';
+  let stopError = '';
 
   onMount(async () => {
     try {
@@ -51,8 +53,8 @@
   });
 
   async function submitRouteDispatch() {
-    status = '';
-    error = '';
+    routeStatus = '';
+    routeError = '';
 
     try {
       const response = await dispatchRoute({
@@ -60,21 +62,21 @@
         driverId: routeDriverId,
         vehicleId: routeVehicleId || undefined,
       });
-      status = `Route dispatch created: ${response.dispatchId}`;
+      routeStatus = `Route dispatch created: ${response.dispatchId}`;
     } catch (err) {
-      error = (err as Error).message;
+      routeError = (err as Error).message;
     }
   }
 
   async function submitStopDispatch() {
-    status = '';
-    error = '';
+    stopStatus = '';
+    stopError = '';
 
     try {
       const response = await dispatchStop({ stopId, driverId: stopDriverId });
-      status = `Stop dispatch created: ${response.dispatchId}`;
+      stopStatus = `Stop dispatch created: ${response.dispatchId}`;
     } catch (err) {
-      error = (err as Error).message;
+      stopError = (err as Error).message;
     }
   }
 </script>
@@ -90,13 +92,13 @@
             <option value="">No route plans found</option>
           {:else}
             {#each routePlans as plan}
-              <option value={plan.id}>{plan.id} ({plan.status})</option>
+              <option value={plan.id}>#{plan.id.slice(0, 8)} — {plan.planDate ?? 'no date'} ({plan.status})</option>
             {/each}
           {/if}
         </select>
       </div>
       <div>
-        <label>Driver ID</label>
+        <label>Driver</label>
         <select bind:value={routeDriverId}>
           {#each drivers as driver}
             <option value={driver.id}>{driver.name} ({driver.state})</option>
@@ -108,7 +110,9 @@
         <input class="input" bind:value={routeVehicleId} placeholder="UUID" />
       </div>
     </div>
-    <button class="button" style="margin-top:16px;" on:click={submitRouteDispatch} disabled={!routePlanId || !routeDriverId}>Dispatch Route</button>
+    <button class="button" style="margin-top:16px;" onclick={submitRouteDispatch} disabled={!routePlanId || !routeDriverId}>Dispatch Route</button>
+    {#if routeStatus}<p class="muted" style="margin-top:8px;">{routeStatus}</p>{/if}
+    {#if routeError}<p style="color:var(--danger);margin-top:8px;">{routeError}</p>{/if}
   </section>
 
   <section class="card">
@@ -119,7 +123,7 @@
         <input class="input" bind:value={stopId} placeholder="UUID" />
       </div>
       <div>
-        <label>Driver ID</label>
+        <label>Driver</label>
         <select bind:value={stopDriverId}>
           {#each drivers as driver}
             <option value={driver.id}>{driver.name} ({driver.state})</option>
@@ -127,13 +131,8 @@
         </select>
       </div>
     </div>
-    <button class="button" style="margin-top:16px;" on:click={submitStopDispatch} disabled={!stopId || !stopDriverId}>Dispatch Stop</button>
+    <button class="button" style="margin-top:16px;" onclick={submitStopDispatch} disabled={!stopId || !stopDriverId}>Dispatch Stop</button>
+    {#if stopStatus}<p class="muted" style="margin-top:8px;">{stopStatus}</p>{/if}
+    {#if stopError}<p style="color:var(--danger);margin-top:8px;">{stopError}</p>{/if}
   </section>
-
-  {#if status}
-    <p class="muted">{status}</p>
-  {/if}
-  {#if error}
-    <p style="color:var(--danger);">{error}</p>
-  {/if}
 </div>

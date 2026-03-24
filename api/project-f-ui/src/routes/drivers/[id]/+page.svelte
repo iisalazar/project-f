@@ -18,23 +18,61 @@
 </script>
 
 <div class="card">
-  <h2 style="margin:0 0 8px;">Driver Detail</h2>
+  <div style="margin-bottom:12px;font-size:14px;color:var(--muted);">
+    <a href="/drivers" style="color:var(--muted);text-decoration:none;">← Drivers</a>
+    {#if driver} / {driver.name}{/if}
+  </div>
+
   {#if error}
     <p style="color:var(--danger);">{error}</p>
   {:else if !driver}
     <p class="muted">Loading...</p>
   {:else}
-    <div class="row two">
-      <div><label>Name</label><div>{driver.name}</div></div>
-      <div><label>Email</label><div>{driver.email ?? '—'}</div></div>
-      <div><label>Phone</label><div>{driver.phone ?? '—'}</div></div>
-      <div><label>State</label><div>{driver.state}</div></div>
-      <div><label>Start Location</label><div>{driver.startLocation ? JSON.stringify(driver.startLocation) : '—'}</div></div>
-      <div><label>End Location</label><div>{driver.endLocation ? JSON.stringify(driver.endLocation) : '—'}</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;">
+      <h2 style="margin:0;">{driver.name}</h2>
+      <button class="button secondary" onclick={() => goto(`/drivers/${driver?.id}/edit`)}>Edit driver</button>
     </div>
-    <div style="display:flex;gap:12px;margin-top:16px;">
-      <button class="button secondary" on:click={() => goto(`/drivers/${driver?.id}/edit`)}>Edit</button>
-      <button class="button secondary" on:click={() => goto('/drivers')}>Back</button>
+
+    <div class="row two">
+      <div class="card">
+        <h3 style="margin:0 0 12px;font-size:15px;">Profile</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div><label style="font-size:12px;">Name</label><div>{driver.name}</div></div>
+          <div><label style="font-size:12px;">Email</label><div>{driver.email ?? '—'}</div></div>
+          <div><label style="font-size:12px;">Phone</label><div>{driver.phone ?? '—'}</div></div>
+          <div>
+            <label style="font-size:12px;">State</label>
+            <div><span class={`status ${driver.state}`}>● {driver.state}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card">
+          <h3 style="margin:0 0 8px;font-size:15px;">Start Location</h3>
+          {#if driver.startLocation}
+            <div style="font-family:var(--mono,monospace);font-size:13px;color:var(--muted);">
+              {driver.startLocation[0]}, {driver.startLocation[1]}
+            </div>
+          {:else}
+            <div class="muted">—</div>
+          {/if}
+        </div>
+        <div class="card">
+          <h3 style="margin:0 0 8px;font-size:15px;">End Location</h3>
+          {#if driver.endLocation}
+            <div style="font-family:var(--mono,monospace);font-size:13px;color:var(--muted);">
+              {driver.endLocation[0]}, {driver.endLocation[1]}
+            </div>
+          {:else}
+            <div class="muted">—</div>
+          {/if}
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <button class="button secondary" onclick={() => goto('/drivers')}>← Back to Drivers</button>
     </div>
   {/if}
 </div>

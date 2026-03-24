@@ -54,7 +54,7 @@
       <div class="muted" style="font-size:13px;">Plan, dispatch, and execute routes</div>
       {#if memberships.length > 0}
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="badge">Role: {activeRole ?? 'unknown'}</span>
+          <span class="badge">● {activeRole ?? 'unknown'}</span>
           {#if memberships.length > 1}
             <select value={activeOrganizationId} onchange={(e) => switchOrganization((e.currentTarget as HTMLSelectElement).value)} style="min-width:220px;">
               {#each memberships as membership}
@@ -69,12 +69,14 @@
     </div>
     <nav style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;">
       {#if activeRole === 'org_admin' || activeRole === 'dispatcher'}
+        <a class="badge" href="/dashboard">Dashboard</a>
         <a class="badge" href="/drivers">Drivers</a>
         <a class="badge" href="/plan">Planning</a>
         <a class="badge" href="/route-plans">Route Plans</a>
         <a class="badge" href="/dispatch">Dispatch</a>
         <a class="badge" href="/jobs">Jobs</a>
       {:else if activeRole === 'viewer'}
+        <a class="badge" href="/dashboard">Dashboard</a>
         <a class="badge" href="/route-plans">Route Plans</a>
         <a class="badge" href="/jobs">Jobs</a>
       {:else if activeRole === 'driver'}
@@ -82,7 +84,6 @@
       {:else}
         <a class="badge" href="/login">Login</a>
       {/if}
-      <a class="badge" href="/login">Login</a>
     </nav>
   </header>
   {@render children()}
